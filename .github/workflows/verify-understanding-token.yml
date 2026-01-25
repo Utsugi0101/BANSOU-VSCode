@@ -1,0 +1,24 @@
+name: Verify BANSOU Token
+
+on:
+  pull_request:
+    types: [opened, synchronize, edited]
+  issue_comment:
+    types: [created, edited]
+
+jobs:
+  verify:
+    if: github.event_name == 'pull_request' || github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify token
+        env:
+          UNDERSTANDING_TOKEN_SECRET: ${{ secrets.UNDERSTANDING_TOKEN_SECRET }}
+          MIN_SCORE: ${{ vars.BANSOU_MIN_SCORE || 80 }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: node scripts/verifyToken.js

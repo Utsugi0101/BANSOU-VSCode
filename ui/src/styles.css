@@ -1,0 +1,286 @@
+:root {
+  color-scheme: light;
+  --bg: #f6f1eb;
+  --bg-accent: #efe2d4;
+  --card: #ffffff;
+  --ink: #1c1b1a;
+  --muted: #5d5a56;
+  --accent: #d2691e;
+  --accent-ink: #fffaf5;
+  --border: #ded5c7;
+  --shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, var(--bg-accent), var(--bg));
+  color: var(--ink);
+  font-family: "Trebuchet MS", "Lucida Grande", "Segoe UI", sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px 18px 40px;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: linear-gradient(135deg, #ffffff 0%, #fdf4ea 100%);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+
+.hero h1 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  margin: 0 0 4px;
+  color: var(--muted);
+}
+
+.sub {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.panel {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px dashed transparent;
+  border-radius: 10px;
+  transition: border 0.2s ease;
+}
+
+.file-row:hover {
+  border-color: var(--border);
+}
+
+.tag {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--bg-accent);
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.question h3 {
+  margin-top: 4px;
+  font-size: 15px;
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.option {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fffaf6;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.option.selected {
+  border-color: var(--accent);
+  box-shadow: 0 8px 20px rgba(210, 105, 30, 0.2);
+  transform: translateY(-1px);
+}
+
+.nav {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+button {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.secondary {
+  background: #f1e6dc;
+  color: var(--ink);
+}
+
+.ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--ink);
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.score {
+  font-size: 24px;
+  margin: 4px 0;
+}
+
+.pass {
+  color: #1a7f37;
+}
+
+.fail {
+  color: #b42318;
+}
+
+.token textarea {
+  width: 100%;
+  min-height: 80px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 8px;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  background: #fffdfb;
+}
+
+.summary ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--ink);
+}
+
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review-item {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fffaf6;
+}
+
+.review-item h3 {
+  margin-top: 0;
+}
+
+.rationale {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.status {
+  background: #fff1d6;
+  border: 1px solid #f3d3a5;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 900px) {
+  .hero {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .result {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+  .token {
+    flex: 1;
+  }
+}
