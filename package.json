@@ -89,6 +89,31 @@
           "default": 80,
           "description": "Score threshold (0-100) required to pass."
         },
+        "understandingQuiz.attestationServerUrl": {
+          "type": "string",
+          "default": "http://localhost:8787",
+          "description": "BANSOU attestation server base URL."
+        },
+        "understandingQuiz.attestationSubject": {
+          "type": "string",
+          "default": "",
+          "description": "Subject (sub) for attestation JWT. Use your GitHub login."
+        },
+        "understandingQuiz.attestationQuizId": {
+          "type": "string",
+          "default": "core-pr",
+          "description": "quiz_id to include in the attestation JWT."
+        },
+        "understandingQuiz.attestationQuizVersion": {
+          "type": "string",
+          "default": "1.0.0",
+          "description": "quiz_version to include in the attestation JWT."
+        },
+        "understandingQuiz.attestationSaveDir": {
+          "type": "string",
+          "default": ".bansou/attestations",
+          "description": "Directory to save attestation JWT files under the workspace."
+        },
         "understandingQuiz.tokenSecretSource": {
           "type": "string",
           "enum": ["envOnly"],

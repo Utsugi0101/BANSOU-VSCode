@@ -26,9 +26,11 @@ export type QuizSession = {
   score: number;
   token: string;
   questionSetHash: string;
+  answersHash?: string;
   summary?: string[];
   prDraft?: string;
   prTemplate?: string;
+  attestationPath?: string;
 };
 
 export type DiffFile = {

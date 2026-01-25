@@ -23,6 +23,7 @@ type GradeResult = {
   passed: boolean;
   token: string;
   prTemplate: string;
+  attestationPath: string;
   correct: number;
   total: number;
 };
@@ -41,6 +42,7 @@ type ExtensionMessage =
       passed: boolean;
       token: string;
       prTemplate: string;
+      attestationPath: string;
       correct: number;
       total: number;
     }
@@ -100,6 +102,7 @@ export default function App() {
             passed: message.passed,
             token: message.token,
             prTemplate: message.prTemplate,
+            attestationPath: message.attestationPath,
             correct: message.correct,
             total: message.total,
           });
@@ -198,6 +201,12 @@ export default function App() {
     if (!result?.token) return;
     await navigator.clipboard.writeText(result.token);
     setStatusMessage('トークンをクリップボードにコピーしました。');
+  };
+
+  const handleCopyAttestationPath = async () => {
+    if (!result?.attestationPath) return;
+    await navigator.clipboard.writeText(result.attestationPath);
+    setStatusMessage('attestation のパスをコピーしました。');
   };
 
   const handleCopyPrTemplate = async () => {
@@ -374,16 +383,30 @@ export default function App() {
               {result.passed ? '合格: トークンを発行しました' : '不合格: もう一度挑戦してください'}
             </p>
           </div>
-          <div className="token">
-            <p className="meta">理解証明トークン</p>
-            <textarea readOnly value={result.token} />
-            <button className="secondary" onClick={handleCopyToken}>
-              トークンをコピー
-            </button>
-            <button className="ghost" onClick={handleCopyPrTemplate}>
-              PRテンプレをコピー
-            </button>
-          </div>
+          {result.token ? (
+            <div className="token">
+              <p className="meta">理解証明トークン (JWT)</p>
+              <textarea readOnly value={result.token} />
+              <button className="secondary" onClick={handleCopyToken}>
+                トークンをコピー
+              </button>
+              <button className="ghost" onClick={handleCopyPrTemplate}>
+                PRテンプレをコピー
+              </button>
+              <p className="meta">attestation file</p>
+              <textarea readOnly value={result.attestationPath} />
+              <button className="ghost" onClick={handleCopyAttestationPath}>
+                パスをコピー
+              </button>
+            </div>
+          ) : (
+            <div className="token">
+              <p className="meta">トークンは未発行</p>
+              <p className="muted">
+                合格スコアに達しない場合や設定不足の場合はトークンが発行されません。
+              </p>
+            </div>
+          )}
         </section>
       )}
 

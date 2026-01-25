@@ -24,6 +24,11 @@ export function computeDiffHash(diffsByFile: Record<string, string>): string {
   return createHash('sha256').update(payload).digest('base64url');
 }
 
+export function computeAnswersHash(answers: number[]): string {
+  const payload = JSON.stringify(answers);
+  return createHash('sha256').update(payload).digest('base64url');
+}
+
 export function issueToken(payload: TokenPayload): string {
   const secret = process.env.UNDERSTANDING_TOKEN_SECRET;
   if (!secret) {

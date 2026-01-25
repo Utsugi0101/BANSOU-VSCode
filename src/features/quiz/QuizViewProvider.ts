@@ -4,7 +4,8 @@ import { randomUUID } from 'node:crypto';
 import * as vscode from 'vscode';
 import { getDiffForFile, getGitMetadata, countChangedLines } from '../../services/gitDiff';
 import { OpenAIResponsesClient } from '../../services/openaiClient';
-import { computeDiffHash, issueToken, computeQuestionSetHash } from '../token/token';
+import { issueAttestation } from '../../services/attestationClient';
+import { computeDiffHash, computeAnswersHash, computeQuestionSetHash } from '../token/token';
 import { saveSession } from '../../services/storage';
 import { redactSensitive } from '../../services/redact';
 import type { DiffFile, QuizSet, SummaryGenerationResponse } from '../../types';
@@ -63,11 +64,12 @@ function normalizeRepoSlug(remoteUrl: string, fallback: string): string {
   return fallback;
 }
 
-function buildPrTemplate(token: string): string {
+function buildPrTemplate(token: string, attestationPath: string): string {
   return [
     '## 理解トークン',
     '',
     `- BANSOU: ${token}`,
+    `- BANSOU-ATTESTATION: ${attestationPath}`,
     '',
   ].join('\n');
 }
@@ -86,6 +88,7 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
   private lastDiffsByFile: Record<string, string> = {};
   private lastSummary?: SummaryGenerationResponse;
   private lastErrorQuiz?: QuizSet;
+  private quizStartedAt?: number;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -196,6 +199,7 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
     const shuffledQuiz = shuffleQuizOptions(quizSet);
     this.lastQuiz = shuffledQuiz;
     this.lastFiles = files;
+    this.quizStartedAt = Date.now();
     this.postMessage({ type: 'quizSet', quizSet: shuffledQuiz });
   }
 
@@ -305,17 +309,46 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
     const passed = score >= passScore;
     const questionSetHash = computeQuestionSetHash(this.lastQuiz.questions);
     const diffHash = computeDiffHash(this.lastDiffsByFile);
+    const answersHash = computeAnswersHash(answers);
+    const config = this.getConfig();
     const issuer = this.getIssuer();
-    const token = issueToken({
-      repo: this.lastRepo,
-      commit: this.lastCommit,
-      diffHash,
-      issuedAt: new Date().toISOString(),
-      score,
-      questionSetHash,
-      issuer,
-    });
-    const prTemplate = buildPrTemplate(token);
+    let token = '';
+    let prTemplate = '';
+    let attestationPath = '';
+
+    if (passed) {
+      if (!config.attestationServerUrl) {
+        throw new Error('attestationServerUrl is not set in settings or environment.');
+      }
+      if (!config.attestationSubject) {
+        throw new Error('attestationSubject is not set in settings or environment.');
+      }
+      const durationMs = this.quizStartedAt ? Date.now() - this.quizStartedAt : undefined;
+      const artifactPath =
+        this.lastFiles.length === 1 ? this.lastFiles[0] : 'multiple-files';
+
+      const response = await issueAttestation(config.attestationServerUrl, {
+        sub: config.attestationSubject,
+        repo: this.lastRepo,
+        commit: this.lastCommit,
+        artifact: { path: artifactPath },
+        quiz_id: config.attestationQuizId,
+        quiz_version: config.attestationQuizVersion,
+        score,
+        duration_ms: durationMs,
+        questions_hash: questionSetHash,
+        answers_hash: answersHash,
+      });
+
+      token = response.attestation_jwt;
+      attestationPath = await this.writeAttestationFile(
+        config.attestationSaveDir,
+        this.lastCommit,
+        config.attestationQuizId,
+        token
+      );
+      prTemplate = buildPrTemplate(token, attestationPath);
+    }
 
     await saveSession(this.context, {
       id: randomUUID(),
@@ -334,6 +367,8 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
       summary: this.lastSummary?.summaryLines,
       prDraft: this.lastSummary?.prDraft,
       prTemplate,
+      attestationPath,
+      answersHash,
     });
 
     this.postMessage({
@@ -342,6 +377,7 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
       passed,
       token,
       prTemplate,
+      attestationPath,
       correct,
       total,
     });
@@ -358,6 +394,11 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
     excludeGlobs: string[];
     questionCount: 'auto' | number;
     terminalErrorQuiz: boolean;
+    attestationServerUrl: string;
+    attestationQuizId: string;
+    attestationQuizVersion: string;
+    attestationSubject: string;
+    attestationSaveDir: string;
   } {
     const config = vscode.workspace.getConfiguration('understandingQuiz');
     const model = config.get<string>('model', 'gpt-5-mini');
@@ -383,6 +424,25 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
             ? 'auto'
             : Number(questionCountRaw);
     const terminalErrorQuiz = config.get<boolean>('terminalErrorQuiz', true);
+    const attestationServerUrl =
+      config.get<string>('attestationServerUrl', '') ||
+      process.env.BANSOU_ATTEST_URL ||
+      '';
+    const attestationQuizId =
+      config.get<string>('attestationQuizId', 'core-pr') ||
+      process.env.BANSOU_ATTEST_QUIZ_ID ||
+      'core-pr';
+    const attestationQuizVersion =
+      config.get<string>('attestationQuizVersion', '1.0.0') ||
+      process.env.BANSOU_ATTEST_QUIZ_VERSION ||
+      '1.0.0';
+    const attestationSubject =
+      config.get<string>('attestationSubject', '') ||
+      process.env.BANSOU_ATTEST_SUB ||
+      '';
+    const attestationSaveDir =
+      config.get<string>('attestationSaveDir', '.bansou/attestations') ||
+      '.bansou/attestations';
     return {
       model,
       passScore,
@@ -390,6 +450,11 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
       excludeGlobs,
       questionCount,
       terminalErrorQuiz,
+      attestationServerUrl,
+      attestationQuizId,
+      attestationQuizVersion,
+      attestationSubject,
+      attestationSaveDir,
     };
   }
 
@@ -409,6 +474,20 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
       throw new Error('No workspace folder is open.');
     }
     return folder.uri.fsPath;
+  }
+
+  private async writeAttestationFile(
+    baseDir: string,
+    commit: string,
+    quizId: string,
+    token: string
+  ): Promise<string> {
+    const workspaceRoot = this.getWorkspaceRoot();
+    const dir = path.join(workspaceRoot, baseDir, commit);
+    await fs.promises.mkdir(dir, { recursive: true });
+    const filePath = path.join(dir, `${quizId}.jwt`);
+    await fs.promises.writeFile(filePath, token, 'utf8');
+    return path.relative(workspaceRoot, filePath);
   }
 
   private getHtml(webview: vscode.Webview): string {

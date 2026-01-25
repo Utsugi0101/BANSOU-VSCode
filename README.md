@@ -15,7 +15,8 @@ Git diff から理解確認クイズを生成し、解説と理解トークン�
 - Node.js 18+
 - Workspace が git repo であること
 - OpenAI 利用時は `OPENAI_API_KEY`
-- トークン署名用に `UNDERSTANDING_TOKEN_SECRET`
+- Attestation 発行サーバの設定（`attestationServerUrl` / `BANSOU_ATTEST_URL`）
+- Attestation の subject 設定（`attestationSubject` / `BANSOU_ATTEST_SUB`）
 
 ## Setup
 
@@ -34,7 +35,8 @@ npm run build
 3) 環境変数（`.env` でも可）
 ```
 OPENAI_API_KEY=your-key
-UNDERSTANDING_TOKEN_SECRET=your-secret
+BANSOU_ATTEST_URL=https://attest.example.com
+BANSOU_ATTEST_SUB=your-github-login
 ```
 
 ## Run in VS Code
@@ -54,22 +56,26 @@ Extension Development Host の起動引数で `--enable-proposed-api undefined_p
 - `understandingQuiz.excludeGlobs`: 除外 glob
 - `understandingQuiz.questionCount`: `auto` or number
 - `understandingQuiz.passScore`: 合格点
+- `understandingQuiz.attestationServerUrl`: Attestation サーバのURL
+- `understandingQuiz.attestationSubject`: `sub`（GitHub ログイン推奨）
+- `understandingQuiz.attestationQuizId`: `quiz_id`
+- `understandingQuiz.attestationQuizVersion`: `quiz_version`
+- `understandingQuiz.attestationSaveDir`: JWTの保存先
 - `understandingQuiz.tokenSecretSource`: `envOnly`
 - `understandingQuiz.githubIntegration`: `off` | `copyTemplate` | `postComment`
 - `understandingQuiz.terminalErrorQuiz`: ターミナルのエラー検知クイズ（true/false）
 
+> Note: attestation サーバ側で最小スコアが 80 に設定されているため、`passScore` は 80 以上に合わせるのを推奨します。
+
 ## GitHub Action (Required Check)
 
-1) シークレット登録  
-`UNDERSTANDING_TOKEN_SECRET` を GitHub Secrets に追加
-
-2) Workflow 追加  
+1) Workflow 追加  
 `.github/workflows/verify-understanding-token.yml` を有効化
 
-3) 必要ならスコア閾値を設定  
-Repository Variables に `BANSOU_MIN_SCORE` を設定
+2) 必要ならスコア閾値を設定  
+Repository Variables に `BANSOU_MIN_SCORE` を設定（サーバ側の設定に合わせる）
 
-4) ブランチ保護で Required Check を有効化  
+3) ブランチ保護で Required Check を有効化  
 `Verify BANSOU Token` を Required Check に追加
 
 ## 手動テスト手順（Phase 1）
@@ -82,7 +88,8 @@ Repository Variables に `BANSOU_MIN_SCORE` を設定
 
 ## 手動テスト手順（Phase 2）
 
-- PR 本文に `- BANSOU: <token>` を貼り付け
+- `.bansou/attestations/<commit>/<quiz_id>.jwt` が作成されていることを確認
+- その JWT ファイルをコミットしてPRに含める
 - Workflow が成功することを確認
 
 ## ターミナルエラー理解クイズ（MVP）
