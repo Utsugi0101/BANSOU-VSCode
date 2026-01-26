@@ -80,7 +80,8 @@ export class OpenAIResponsesClient implements OpenAIClient {
   ): Promise<QuizGenerationResponse> {
     const systemPrompt =
       'あなたは git diff に関する理解確認の選択式クイズを生成します。' +
-      '提供されたJSONスキーマに完全一致するJSONのみを返してください。追加の文章は不要です。';
+      '提供されたJSONスキーマに完全一致するJSONのみを返してください。追加の文章は不要です。' +
+      '出力は日本語で統一してください。';
 
     const userPrompt = [
       `Title: ${request.title}`,
@@ -91,6 +92,7 @@ export class OpenAIResponsesClient implements OpenAIClient {
       '- 各問題は入力された filePath のうち1つだけを参照する。',
       '- 各問題の選択肢は4つ。',
       '- hunkSummary は必ず含める（不要なら空文字でもよい）。',
+      '- 問題文、選択肢、解説はすべて日本語。',
       '',
       'Diffs:',
       ...request.files.map((filePath) => {

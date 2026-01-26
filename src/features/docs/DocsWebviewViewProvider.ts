@@ -130,17 +130,16 @@ export class DocsWebviewViewProvider implements vscode.WebviewViewProvider {
     }
     const manifest = JSON.parse(
       fs.readFileSync(manifestPath.fsPath, 'utf8')
-    ) as Record<string, { file: string; css?: string[] }>;
-    const entry =
-      manifest['src/docs-main.tsx'] ?? manifest['docs'];
+    ) as Record<string, { file: string; css?: string[]; imports?: string[] }>;
+    const entry = manifest['src/docs-main.tsx'] ?? manifest['docs'];
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, 'ui', 'dist', entry.file)
     );
-    const styleUri = entry.css?.[0]
-      ? webview.asWebviewUri(
-          vscode.Uri.joinPath(this.extensionUri, 'ui', 'dist', entry.css[0])
-        )
-      : undefined;
+    const styleUris = collectStyleUris(manifest, entry).map((file) =>
+      webview.asWebviewUri(
+        vscode.Uri.joinPath(this.extensionUri, 'ui', 'dist', file)
+      )
+    );
 
     const nonce = getNonce();
     return `<!DOCTYPE html>
@@ -149,7 +148,7 @@ export class DocsWebviewViewProvider implements vscode.WebviewViewProvider {
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    ${styleUri ? `<link rel="stylesheet" href="${styleUri}">` : ''}
+    ${styleUris.map((uri) => `<link rel="stylesheet" href="${uri}">`).join('')}
     <title>BANSOU Docs</title>
   </head>
   <body>
@@ -181,4 +180,17 @@ function getNonce(): string {
     text += possible.charAt(Math.floor(Math.random() * possible.length));
   }
   return text;
+}
+
+function collectStyleUris(
+  manifest: Record<string, { css?: string[]; imports?: string[] }>,
+  entry: { css?: string[]; imports?: string[] }
+): string[] {
+  const cssFiles = new Set<string>();
+  entry.css?.forEach((file) => cssFiles.add(file));
+  entry.imports?.forEach((importKey) => {
+    const imported = manifest[importKey];
+    imported?.css?.forEach((file) => cssFiles.add(file));
+  });
+  return Array.from(cssFiles);
 }

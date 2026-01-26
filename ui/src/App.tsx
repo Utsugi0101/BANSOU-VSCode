@@ -61,6 +61,8 @@ export default function App() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
   const [result, setResult] = useState<GradeResult | null>(null);
+  const [view, setView] = useState<'list' | 'quiz' | 'result' | 'review'>('list');
+  const [activeQuizFile, setActiveQuizFile] = useState<string | null>(null);
   const [summaryLines, setSummaryLines] = useState<string[] | null>(null);
   const [prDraft, setPrDraft] = useState<string | null>(null);
   const [errorQuizSet, setErrorQuizSet] = useState<QuizSet | null>(null);
@@ -93,6 +95,7 @@ export default function App() {
           setCurrentIndex(0);
           setResult(null);
           setIsGenerating(false);
+          setView('quiz');
           setStatusMessage(null);
           return;
         }
@@ -106,6 +109,7 @@ export default function App() {
             correct: message.correct,
             total: message.total,
           });
+          setView('result');
           setStatusMessage(null);
           return;
         }
@@ -159,6 +163,22 @@ export default function App() {
     setIsGenerating(true);
     setStatusMessage('クイズを生成しています...');
     vscode.postMessage({ type: 'generateQuiz', files: selectedList });
+  };
+
+  const handleGenerateQuizForFile = (filePath: string) => {
+    setIsGenerating(true);
+    setStatusMessage('クイズを生成しています...');
+    setActiveQuizFile(filePath);
+    vscode.postMessage({ type: 'generateQuiz', files: [filePath] });
+  };
+
+  const handleBackToList = () => {
+    setQuizSet(null);
+    setAnswers([]);
+    setResult(null);
+    setCurrentIndex(0);
+    setActiveQuizFile(null);
+    setView('list');
   };
 
   const handleGenerateSummary = () => {
@@ -246,9 +266,9 @@ export default function App() {
       <header className="hero">
         <div>
           <p className="eyebrow">BANSOU</p>
-          <h1>理解してから push しよう</h1>
+          <h1>BANSOU QUIZ</h1>
           <p className="sub">
-            git diff から理解確認クイズを作成し、合格トークンを発行します。
+            変更ファイルごとに理解確認クイズを作成し、合格トークンを発行します。
           </p>
         </div>
         <div className="hero-actions">
@@ -258,72 +278,36 @@ export default function App() {
         </div>
       </header>
 
-      <section className="panel">
-        <div className="panel-header">
-          <h2>{repoName} の変更ファイル</h2>
-          <span>{selectedList.length} 件選択</span>
-        </div>
-        <div className="file-list">
-          {diffFiles.length === 0 && (
-            <p className="muted">変更が見つかりません。差分を作って更新してください。</p>
-          )}
-          {diffFiles.map((file) => (
-            <label key={file.path} className="file-row">
-              <input
-                type="checkbox"
-                checked={Boolean(selectedFiles[file.path])}
-                onChange={(event) =>
-                  setSelectedFiles((prev) => ({
-                    ...prev,
-                    [file.path]: event.target.checked,
-                  }))
-                }
-              />
-              <span>{file.path}</span>
-              {file.isExcludedByDefault && <span className="tag">初期は除外</span>}
-            </label>
-          ))}
-        </div>
-        <button className="secondary" onClick={handleGenerateQuiz} disabled={isGenerating}>
-          {isGenerating ? '生成中...' : 'クイズ生成'}
-        </button>
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>変更要約 & PR下書き</h2>
-          <span>mode: {openAIMode}</span>
-        </div>
-        <p className="muted">
-          {openAIMode === 'localOnly'
-            ? 'テンプレを生成します（OpenAIへ送信しません）。'
-            : '選択した差分をOpenAIに送って要約と下書きを生成します。'}
-        </p>
-        <button className="secondary" onClick={handleGenerateSummary} disabled={isSummarizing}>
-          {isSummarizing ? '生成中...' : '要約/PR下書きを生成'}
-        </button>
-        {summaryLines && (
-          <div className="summary">
-            <h3>変更要約</h3>
-            <ul>
-              {summaryLines.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
+      {view === 'list' && (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>{repoName} の変更ファイル</h2>
+            <span>{diffFiles.length} 件</span>
           </div>
-        )}
-        {prDraft && (
-          <div className="token">
-            <p className="meta">PR説明文（下書き）</p>
-            <textarea readOnly value={prDraft} />
-            <button className="secondary" onClick={handleCopyPrDraft}>
-              PR下書きをコピー
-            </button>
+          <div className="file-list">
+            {diffFiles.length === 0 && (
+              <p className="muted">変更が見つかりません。差分を作って更新してください。</p>
+            )}
+            {diffFiles.map((file) => (
+              <div key={file.path} className="file-row">
+                <span>{file.path}</span>
+                {file.isExcludedByDefault && <span className="tag">初期は除外</span>}
+                <button
+                  className="secondary"
+                  onClick={() => handleGenerateQuizForFile(file.path)}
+                  disabled={isGenerating}
+                >
+                  {isGenerating && activeQuizFile === file.path ? '生成中...' : 'クイズ開始'}
+                </button>
+              </div>
+            ))}
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
-      {quizSet && (
+      {view === 'list' && null}
+
+      {quizSet && view === 'quiz' && (
         <section className="panel">
           <div className="panel-header">
             <h2>{quizSet.title}</h2>
@@ -355,6 +339,9 @@ export default function App() {
             </div>
           )}
           <div className="nav">
+            <button className="ghost" onClick={handleBackToList}>
+              一覧へ戻る
+            </button>
             <button className="ghost" onClick={handlePrev} disabled={currentIndex === 0}>
               前へ
             </button>
@@ -372,7 +359,7 @@ export default function App() {
         </section>
       )}
 
-      {result && (
+      {result && view === 'result' && (
         <section className="panel result">
           <div>
             <h2>結果</h2>
@@ -382,6 +369,14 @@ export default function App() {
             <p className={result.passed ? 'pass' : 'fail'}>
               {result.passed ? '合格: トークンを発行しました' : '不合格: もう一度挑戦してください'}
             </p>
+            <div className="nav">
+              <button className="secondary" onClick={() => setView('review')}>
+                解説を見る
+              </button>
+              <button className="ghost" onClick={handleBackToList}>
+                一覧へ戻る
+              </button>
+            </div>
           </div>
           {result.token ? (
             <div className="token">
@@ -410,11 +405,19 @@ export default function App() {
         </section>
       )}
 
-      {result && quizSet && (
+      {result && quizSet && view === 'review' && (
         <section className="panel">
           <div className="panel-header">
             <h2>解説</h2>
             <span>{quizSet.questions.length} 問</span>
+          </div>
+          <div className="nav">
+            <button className="ghost" onClick={() => setView('result')}>
+              結果へ戻る
+            </button>
+            <button className="ghost" onClick={handleBackToList}>
+              一覧へ戻る
+            </button>
           </div>
           <div className="review">
             {quizSet.questions.map((question, index) => {
