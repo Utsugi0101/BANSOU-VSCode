@@ -8,7 +8,10 @@ export default defineConfig({
     emptyOutDir: true,
     manifest: true,
     rollupOptions: {
-      input: 'src/main.tsx',
+      input: {
+        main: 'src/main.tsx',
+        docs: 'src/docs-main.tsx',
+      },
     },
   },
 });

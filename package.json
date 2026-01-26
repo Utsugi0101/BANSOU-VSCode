@@ -12,7 +12,9 @@
   "icon": "media/icon.svg",
   "activationEvents": [
     "onView:bansou.sidebar",
-    "onCommand:bansou.openSidebar"
+    "onCommand:bansou.openSidebar",
+    "onCommand:bansou.openOfficialDocs",
+    "onView:bansou.docs.recommendations"
   ],
   "main": "./dist/extension.js",
   "enabledApiProposals": [
@@ -23,13 +25,33 @@
       {
         "command": "bansou.openSidebar",
         "title": "BANSOU: Open Sidebar"
+      },
+      {
+        "command": "bansou.openOfficialDocs",
+        "title": "BANSOU: Open Official Docs"
       }
     ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "bansou.openOfficialDocs",
+          "when": "editorTextFocus",
+          "group": "navigation@200"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {
           "id": "bansou",
           "title": "BANSOU",
+          "icon": "media/icon.svg"
+        }
+      ],
+      "secondarySidebar": [
+        {
+          "id": "bansou-docs",
+          "title": "BANSOU Docs",
           "icon": "media/icon.svg"
         }
       ]
@@ -41,11 +63,322 @@
           "name": "BANSOU",
           "type": "webview"
         }
+      ],
+      "bansou-docs": [
+        {
+          "id": "bansou.docs.recommendations",
+          "name": "Recommendations",
+          "type": "webview"
+        }
       ]
     },
     "configuration": {
       "title": "BANSOU",
       "properties": {
+        "bansou.docs.languageSearchUrls": {
+          "type": "object",
+          "default": {
+            "javascript": "https://developer.mozilla.org/ja/search?q={query}",
+            "typescript": "https://www.typescriptlang.org/ja/docs/handbook/",
+            "python": "https://docs.python.org/ja/3/search.html?q={query}",
+            "go": "https://pkg.go.dev/search?q={query}",
+            "rust": "https://doc.rust-lang.org/std/?search={query}",
+            "java": "https://docs.oracle.com/en/java/javase/21/docs/api/search.html?q={query}",
+            "csharp": "https://learn.microsoft.com/ja-jp/search/?terms={query}&scope=.NET"
+          },
+          "description": "Language IDごとの公式ドキュメント検索URLテンプレート。{query}/{symbol}/{languageId} を置換します。"
+        },
+        "bansou.docs.symbolSearchUrls": {
+          "type": "object",
+          "default": {
+            "useState": "https://ja.react.dev/reference/react/useState",
+            "useEffect": "https://ja.react.dev/reference/react/useEffect",
+            "useMemo": "https://ja.react.dev/reference/react/useMemo",
+            "useCallback": "https://ja.react.dev/reference/react/useCallback",
+            "useRef": "https://ja.react.dev/reference/react/useRef",
+            "useReducer": "https://ja.react.dev/reference/react/useReducer",
+            "useContext": "https://ja.react.dev/reference/react/useContext",
+            "createContext": "https://ja.react.dev/reference/react/createContext",
+            "memo": "https://ja.react.dev/reference/react/memo",
+            "forwardRef": "https://ja.react.dev/reference/react/forwardRef",
+            "Suspense": "https://ja.react.dev/reference/react/Suspense",
+            "lazy": "https://ja.react.dev/reference/react/lazy",
+            "Fragment": "https://ja.react.dev/reference/react/Fragment",
+            "keyof": "https://www.typescriptlang.org/ja/docs/handbook/2/keyof-types.html",
+            "satisfies": "https://www.typescriptlang.org/ja/docs/handbook/release-notes/typescript-4-9.html",
+            "infer": "https://www.typescriptlang.org/ja/docs/handbook/2/conditional-types.html",
+            "readonly": "https://www.typescriptlang.org/ja/docs/handbook/2/objects.html",
+            "unknown": "https://www.typescriptlang.org/ja/docs/handbook/2/narrowing.html",
+            "never": "https://www.typescriptlang.org/ja/docs/handbook/2/narrowing.html",
+            "as const": "https://www.typescriptlang.org/ja/docs/handbook/2/everyday-types.html#literal-inference",
+            "Partial": "https://www.typescriptlang.org/ja/docs/handbook/utility-types.html#partialtype",
+            "Required": "https://www.typescriptlang.org/ja/docs/handbook/utility-types.html#requiredtype",
+            "Readonly": "https://www.typescriptlang.org/ja/docs/handbook/utility-types.html#readonlytype",
+            "Pick": "https://www.typescriptlang.org/ja/docs/handbook/utility-types.html#picktype-keys",
+            "Omit": "https://www.typescriptlang.org/ja/docs/handbook/utility-types.html#omittype-keys",
+            "Record": "https://www.typescriptlang.org/ja/docs/handbook/utility-types.html#recordkeys-type",
+            "Exclude": "https://www.typescriptlang.org/ja/docs/handbook/utility-types.html#excludetype-excludedunion",
+            "Extract": "https://www.typescriptlang.org/ja/docs/handbook/utility-types.html#extracttype-union",
+            "NonNullable": "https://www.typescriptlang.org/ja/docs/handbook/utility-types.html#nonnullabletype",
+            "Parameters": "https://www.typescriptlang.org/ja/docs/handbook/utility-types.html#parameterstype",
+            "ReturnType": "https://www.typescriptlang.org/ja/docs/handbook/utility-types.html#returntypetype",
+            "Awaited": "https://www.typescriptlang.org/ja/docs/handbook/utility-types.html#awaitedtype",
+            "Component": "https://ja.react.dev/reference/react/Component",
+            "PureComponent": "https://ja.react.dev/reference/react/PureComponent",
+            "Children": "https://ja.react.dev/reference/react/Children",
+            "createElement": "https://ja.react.dev/reference/react/createElement",
+            "cloneElement": "https://ja.react.dev/reference/react/cloneElement",
+            "createPortal": "https://ja.react.dev/reference/react-dom/createPortal"
+          },
+          "description": "シンボル名ごとの公式ドキュメントURLテンプレート。言語より優先されます。"
+        },
+        "bansou.docs.fallbackSearchUrl": {
+          "type": "string",
+          "default": "https://developer.mozilla.org/ja/search?q={query}",
+          "description": "言語が未設定のときに使うフォールバックURLテンプレート。"
+        },
+        "bansou.docs.packageSearchUrls": {
+          "type": "object",
+          "default": {
+            "react": "https://ja.react.dev/",
+            "next": "https://nextjs.org/docs",
+            "vue": "https://ja.vuejs.org/",
+            "svelte": "https://svelte.jp/docs",
+            "express": "https://expressjs.com/ja/",
+            "nestjs": "https://docs.nestjs.com/",
+            "vite": "https://ja.vite.dev/",
+            "vitest": "https://vitest.dev/",
+            "jest": "https://jestjs.io/ja/"
+          },
+          "description": "パッケージ名ごとの公式ドキュメントURLテンプレート。"
+        },
+        "bansou.docs.packageFallbackSearchUrl": {
+          "type": "string",
+          "default": "https://www.npmjs.com/search?q={query}",
+          "description": "パッケージ名が未設定のときに使うフォールバックURLテンプレート。"
+        },
+        "bansou.docs.maxRecommendations": {
+          "type": "number",
+          "default": 12,
+          "description": "ファイル全体から抽出するおすすめの最大件数。"
+        },
+        "bansou.docs.debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Recommendationsの検知結果をOutputに出力します。"
+        },
+        "bansou.docs.debugVerbose": {
+          "type": "boolean",
+          "default": false,
+          "description": "読み込んだファイルの先頭プレビューと抽出内容をOutputに出力します。"
+        },
+        "bansou.docs.patternRules": {
+          "type": "array",
+          "default": [
+            {
+              "id": "react-hooks",
+              "label": "Hooks (useState/useEffectなど)",
+              "kind": "react",
+              "pattern": "\\\\buse(State|Effect|Memo|Callback|Ref|Reducer|Context|LayoutEffect|ImperativeHandle|Transition|DeferredValue)\\\\b",
+              "url": "https://ja.react.dev/reference/react",
+              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+            },
+            {
+              "id": "react-context",
+              "label": "Context API",
+              "kind": "react",
+              "pattern": "\\\\b(createContext|useContext|Context\\\\.Provider|Context\\\\.Consumer)\\\\b",
+              "url": "https://ja.react.dev/reference/react/createContext",
+              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+            },
+            {
+              "id": "react-jsx",
+              "label": "JSX構文",
+              "kind": "react",
+              "pattern": "<[A-Z][A-Za-z0-9]*[\\n\\s\\S]*?>",
+              "url": "https://ja.react.dev/learn/writing-markup-with-jsx",
+              "languageIds": ["javascriptreact", "typescriptreact"]
+            },
+            {
+              "id": "react-fragments",
+              "label": "Fragment",
+              "kind": "react",
+              "pattern": "<>|<React\\\\.Fragment>|<Fragment>",
+              "url": "https://ja.react.dev/reference/react/Fragment",
+              "languageIds": ["javascriptreact", "typescriptreact"]
+            },
+            {
+              "id": "react-forward-ref",
+              "label": "forwardRef",
+              "kind": "react",
+              "pattern": "\\\\bforwardRef\\\\b",
+              "url": "https://ja.react.dev/reference/react/forwardRef",
+              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+            },
+            {
+              "id": "react-memo",
+              "label": "React.memo",
+              "kind": "react",
+              "pattern": "\\\\bReact\\\\.memo\\\\b|\\\\bmemo\\\\b",
+              "url": "https://ja.react.dev/reference/react/memo",
+              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+            },
+            {
+              "id": "react-callbacks",
+              "label": "useCallback / useMemo",
+              "kind": "react",
+              "pattern": "\\\\buseCallback\\\\b|\\\\buseMemo\\\\b",
+              "url": "https://ja.react.dev/reference/react/useCallback",
+              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+            },
+            {
+              "id": "react-router",
+              "label": "React Router",
+              "kind": "react",
+              "pattern": "\\\\buseNavigate\\\\b|\\\\bRoute\\\\b|\\\\bRoutes\\\\b|\\\\bLink\\\\b",
+              "url": "https://reactrouter.com/en/main",
+              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+            },
+            {
+              "id": "react-suspense",
+              "label": "Suspense / lazy",
+              "kind": "react",
+              "pattern": "\\\\bSuspense\\\\b|\\\\blazy\\\\b",
+              "url": "https://ja.react.dev/reference/react/Suspense",
+              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+            },
+            {
+              "id": "react-use-client",
+              "label": "Next.js Client Components (use client)",
+              "kind": "react",
+              "pattern": "\\\\buse\\\\s+client\\\\b",
+              "url": "https://nextjs.org/docs/app/building-your-application/rendering/client-components",
+              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+            },
+            {
+              "id": "next-server-components",
+              "label": "Next.js Server Components",
+              "kind": "react",
+              "pattern": "\\\\buse\\\\s+server\\\\b",
+              "url": "https://nextjs.org/docs/app/building-your-application/rendering/server-components",
+              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+            },
+            {
+              "id": "next-data-fetching",
+              "label": "Next.js Data Fetching (route handlers)",
+              "kind": "react",
+              "pattern": "\\\\bNextResponse\\\\b|\\\\bNextRequest\\\\b|\\\\broute\\\\.ts\\\\b",
+              "url": "https://nextjs.org/docs/app/building-your-application/routing/route-handlers",
+              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+            },
+            {
+              "id": "ts-generics",
+              "label": "TypeScript Generics",
+              "kind": "typescript",
+              "pattern": "<[A-Z][A-Za-z0-9_]*\\\\s*[,>]",
+              "url": "https://www.typescriptlang.org/ja/docs/handbook/2/generics.html",
+              "languageIds": ["typescript", "typescriptreact"]
+            },
+            {
+              "id": "ts-union-intersection",
+              "label": "Union / Intersection 型",
+              "kind": "typescript",
+              "pattern": "\\\\|\\\\s*[^=\\n]+|&\\\\s*[^=\\n]+",
+              "url": "https://www.typescriptlang.org/ja/docs/handbook/2/everyday-types.html#union-types",
+              "languageIds": ["typescript", "typescriptreact"]
+            },
+            {
+              "id": "ts-keyof",
+              "label": "keyof / typeof",
+              "kind": "typescript",
+              "pattern": "\\\\bkeyof\\\\b|\\\\btypeof\\\\b",
+              "url": "https://www.typescriptlang.org/ja/docs/handbook/2/keyof-types.html",
+              "languageIds": ["typescript", "typescriptreact"]
+            },
+            {
+              "id": "ts-conditional",
+              "label": "Conditional Types",
+              "kind": "typescript",
+              "pattern": "\\\\bextends\\\\b[\\n\\s\\S]+\\\\?",
+              "url": "https://www.typescriptlang.org/ja/docs/handbook/2/conditional-types.html",
+              "languageIds": ["typescript", "typescriptreact"]
+            },
+            {
+              "id": "ts-mapped",
+              "label": "Mapped Types",
+              "kind": "typescript",
+              "pattern": "\\\\{\\\\s*\\\\[.+\\\\]\\s*:\\\\s*.+\\\\}",
+              "url": "https://www.typescriptlang.org/ja/docs/handbook/2/mapped-types.html",
+              "languageIds": ["typescript", "typescriptreact"]
+            },
+            {
+              "id": "ts-asserts",
+              "label": "TypeScript 型アサーション (as)",
+              "kind": "typescript",
+              "pattern": "\\\\bas\\\\s+[A-Za-z_$][A-Za-z0-9_$\\.\\[\\]<>]*",
+              "url": "https://www.typescriptlang.org/ja/docs/handbook/2/everyday-types.html#type-assertions",
+              "languageIds": ["typescript", "typescriptreact"]
+            },
+            {
+              "id": "ts-satisfies",
+              "label": "TypeScript satisfies演算子",
+              "kind": "typescript",
+              "pattern": "\\\\bsatisfies\\\\b",
+              "url": "https://www.typescriptlang.org/ja/docs/handbook/release-notes/typescript-4-9.html",
+              "languageIds": ["typescript", "typescriptreact"]
+            },
+            {
+              "id": "ts-import-type",
+              "label": "type-only import",
+              "kind": "typescript",
+              "pattern": "\\\\bimport\\\\s+type\\\\b",
+              "url": "https://www.typescriptlang.org/ja/docs/handbook/2/modules.html#importing-types",
+              "languageIds": ["typescript", "typescriptreact"]
+            },
+            {
+              "id": "ts-enum",
+              "label": "enum",
+              "kind": "typescript",
+              "pattern": "\\\\benum\\\\b",
+              "url": "https://www.typescriptlang.org/ja/docs/handbook/enums.html",
+              "languageIds": ["typescript", "typescriptreact"]
+            },
+            {
+              "id": "ts-namespace",
+              "label": "namespace",
+              "kind": "typescript",
+              "pattern": "\\\\bnamespace\\\\b",
+              "url": "https://www.typescriptlang.org/ja/docs/handbook/namespaces.html",
+              "languageIds": ["typescript", "typescriptreact"]
+            },
+            {
+              "id": "ts-decorators",
+              "label": "Decorators",
+              "kind": "typescript",
+              "pattern": "@[A-Za-z_$][A-Za-z0-9_$]*",
+              "url": "https://www.typescriptlang.org/ja/docs/handbook/decorators.html",
+              "languageIds": ["typescript", "typescriptreact"]
+            }
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "kind": { "type": "string", "enum": ["react", "typescript", "general"] },
+              "pattern": { "type": "string" },
+              "url": { "type": "string" },
+              "languageIds": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "description": "言語/フレームワーク特有の書き方や機能を検知するルール（正規表現）。"
+        },
+        "bansou.docs.openLocation": {
+          "type": "string",
+          "enum": ["internal", "external"],
+          "default": "external",
+          "description": "公式ドキュメントをVS Code内で開くか外部ブラウザで開くかを選択します。"
+        },
         "understandingQuiz.model": {
           "type": "string",
           "default": "gpt-5-mini",
