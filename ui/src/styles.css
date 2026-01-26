@@ -284,3 +284,140 @@ button:disabled {
     flex: 1;
   }
 }
+
+.docs-app {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 18px 32px;
+  min-height: 100vh;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.docs-hero {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #ffffff 0%, #fef4e8 100%);
+  border-radius: 18px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+
+.docs-hero h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.docs-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.docs-pill {
+  background: var(--bg-accent);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.docs-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.docs-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.docs-group__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.docs-group__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.docs-group__title h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.docs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.docs-item {
+  text-align: left;
+  background: #fffaf6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.docs-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
+}
+
+.docs-item__title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.docs-item__desc {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.docs-empty {
+  text-align: center;
+}
+
+.docs-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: var(--bg-accent);
+  display: inline-block;
+}
+
+.docs-icon--sparkle {
+  background: linear-gradient(135deg, #ffcf8b, #f9a261);
+}
+
+.docs-icon--symbol-key {
+  background: linear-gradient(135deg, #c6e2ff, #7fb5ff);
+}
+
+.docs-icon--package {
+  background: linear-gradient(135deg, #c9f0d0, #69c27d);
+}
+
+.docs-icon--search {
+  background: linear-gradient(135deg, #fbe5c3, #f3b25f);
+}
+
+.docs-icon--book {
+  background: linear-gradient(135deg, #e7d4ff, #a38bff);
+}
+
+@media (min-width: 720px) {
+  .docs-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

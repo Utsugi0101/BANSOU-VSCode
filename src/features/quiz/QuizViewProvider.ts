@@ -510,7 +510,8 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
     const manifest = JSON.parse(
       fs.readFileSync(manifestPath.fsPath, 'utf8')
     ) as Record<string, { file: string; css?: string[] }>;
-    const entry = manifest['src/main.tsx'];
+    const entry =
+      manifest['src/main.tsx'] ?? manifest['main'];
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, 'ui', 'dist', entry.file)
     );
@@ -532,7 +533,7 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
   </head>
   <body>
     <div id="root"></div>
-    <script nonce="${nonce}" src="${scriptUri}"></script>
+    <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
   </body>
 </html>`;
   }

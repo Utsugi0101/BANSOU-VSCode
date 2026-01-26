@@ -3,8 +3,12 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import * as dotenv from 'dotenv';
 import { QuizViewProvider } from './features/quiz/QuizViewProvider';
+import { openOfficialDocs } from './features/docs/openOfficialDocs';
+import { DocsWebviewViewProvider } from './features/docs/DocsWebviewViewProvider';
 
 export function activate(context: vscode.ExtensionContext) {
+  const output = vscode.window.createOutputChannel('BANSOU');
+  output.appendLine('BANSOU activate');
   loadDotEnv();
   const provider = new QuizViewProvider(context, context.extensionUri);
   context.subscriptions.push(
@@ -22,6 +26,35 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(openSidebarCommand);
+
+  const openDocsCommand = vscode.commands.registerCommand(
+    'bansou.openOfficialDocs',
+    async (options?: Parameters<typeof openOfficialDocs>[0]) => {
+      await openOfficialDocs(options);
+    }
+  );
+
+  context.subscriptions.push(openDocsCommand);
+
+  const docsWebviewProvider = new DocsWebviewViewProvider(
+    context,
+    context.extensionUri
+  );
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      DocsWebviewViewProvider.viewId,
+      docsWebviewProvider
+    )
+  );
+
+  output.appendLine('BANSOU docs: recommendations webview registered');
+  output.appendLine(
+    `BANSOU docs config: ${JSON.stringify(
+      vscode.workspace.getConfiguration('bansou.docs'),
+      null,
+      2
+    )}`
+  );
 }
 
 export function deactivate() {}
