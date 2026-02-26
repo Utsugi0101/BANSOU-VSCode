@@ -5,6 +5,11 @@ import * as vscode from 'vscode';
 import { getDiffForFile, getGitMetadata, countChangedLines } from '../../services/gitDiff';
 import { OpenAIResponsesClient } from '../../services/openaiClient';
 import { issueAttestation } from '../../services/attestationClient';
+import {
+  generateServerQuiz,
+  submitServerQuiz,
+  QuizArtifact,
+} from '../../services/quizClient';
 import { computeDiffHash, computeAnswersHash, computeQuestionSetHash } from '../token/token';
 import { saveSession } from '../../services/storage';
 import { redactSensitive } from '../../services/redact';
@@ -137,6 +142,28 @@ function extractChangedRanges(diffText: string): DiffRange[] {
     ranges.push({ rangeStart: start, rangeEnd: end });
   }
   return ranges;
+}
+
+function buildArtifactsForFiles(
+  files: string[],
+  diffsByFile: Record<string, string>
+): QuizArtifact[] {
+  const artifacts: QuizArtifact[] = [];
+  for (const filePath of files) {
+    const ranges = extractChangedRanges(diffsByFile[filePath] ?? '');
+    if (ranges.length === 0) {
+      artifacts.push({ path: filePath });
+      continue;
+    }
+    for (const range of ranges) {
+      artifacts.push({
+        path: filePath,
+        rangeStart: range.rangeStart,
+        rangeEnd: range.rangeEnd,
+      });
+    }
+  }
+  return artifacts;
 }
 
 function buildAttestationSuffix(
@@ -273,6 +300,9 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
   private lastChecklistFiles: string[] = [];
   private lastChecklistDiffsByFile: Record<string, string> = {};
   private checklistStartedAt?: number;
+  private lastQuizSessionToken = '';
+  private lastServerQuestionsHash = '';
+  private lastServerDiffHash = '';
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -335,6 +365,9 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
     this.lastCommit = metadata.commit;
     this.lastUserName = metadata.userName;
     this.lastUserEmail = metadata.userEmail;
+    this.lastQuizSessionToken = '';
+    this.lastServerQuestionsHash = '';
+    this.lastServerDiffHash = '';
 
     const config = this.getConfig();
     const excludeGlobs = config.excludeGlobs;
@@ -366,8 +399,54 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
       totalChanged += countChangedLines(diff);
     }
     this.lastDiffsByFile = diffsByFile;
+    this.lastQuizSessionToken = '';
+    this.lastServerQuestionsHash = '';
+    this.lastServerDiffHash = '';
 
     const config = this.getConfig();
+    if (config.attestationServerUrl && config.attestationSubject) {
+      try {
+        const desiredCount =
+          config.questionCount === 'auto'
+            ? desiredQuestionCount(totalChanged)
+            : config.questionCount;
+        const artifacts = buildArtifactsForFiles(files, diffsByFile);
+        const response = await generateServerQuiz(config.attestationServerUrl, {
+          sub: config.attestationSubject,
+          repo: this.lastRepo,
+          commit: this.lastCommit,
+          quiz_id: config.attestationQuizId,
+          quiz_version: config.attestationQuizVersion,
+          files,
+          diffsByFile,
+          desiredQuestionCount: desiredCount,
+          artifacts,
+        });
+        const quizSet: QuizSet = {
+          title: response.quiz.title,
+          questions: response.quiz.questions.map((question) => ({
+            ...question,
+            answerIndex: undefined,
+          })),
+        };
+        this.lastQuizSessionToken = response.quiz_session_token;
+        this.lastServerQuestionsHash = response.questions_hash;
+        this.lastServerDiffHash = response.diff_hash;
+        const shuffledQuiz = shuffleQuizOptions(quizSet);
+        this.lastQuiz = shuffledQuiz;
+        this.lastFiles = files;
+        this.quizStartedAt = Date.now();
+        this.postMessage({ type: 'quizSet', quizSet: shuffledQuiz });
+        return;
+      } catch (error) {
+        const messageText =
+          error instanceof Error ? error.message : 'Unknown quiz generation error';
+        void vscode.window.showWarningMessage(
+          `BANSOU: server quiz failed, fallback to local mode (${messageText})`
+        );
+      }
+    }
+
     const shouldUseLocalQuiz = config.openAIMode === 'localOnly' || !process.env.OPENAI_API_KEY;
     if (shouldUseLocalQuiz) {
       const quizSet = buildLocalQuizSet(
@@ -622,98 +701,140 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
     if (!this.lastQuiz) {
       throw new Error('Quiz has not been generated yet.');
     }
+    const config = this.getConfig();
     const total = this.lastQuiz.questions.length;
     let correct = 0;
-    this.lastQuiz.questions.forEach((question, index) => {
-      if (answers[index] === question.answerIndex) {
-        correct += 1;
-      }
-    });
-    const score = total === 0 ? 0 : Math.round((correct / total) * 100);
-    const passScore = this.getConfig().passScore;
-    const passed = score >= passScore;
-    const questionSetHash = computeQuestionSetHash(this.lastQuiz.questions);
-    const diffHash = computeDiffHash(this.lastDiffsByFile);
+    let score = 0;
+    let passed = false;
+    let questionSetHash = computeQuestionSetHash(this.lastQuiz.questions);
+    let diffHash = computeDiffHash(this.lastDiffsByFile);
     const answersHash = computeAnswersHash(answers);
-    const config = this.getConfig();
     const issuer = this.getIssuer();
     let token = '';
     let prTemplate = '';
     let attestationPath = '';
+    let issuedAttestations: IssuedAttestation[] = [];
+
+    if (this.lastQuizSessionToken && config.attestationServerUrl) {
+      const durationMs = this.quizStartedAt ? Date.now() - this.quizStartedAt : undefined;
+      const response = await submitServerQuiz(config.attestationServerUrl, {
+        quiz_session_token: this.lastQuizSessionToken,
+        answers,
+        duration_ms: durationMs,
+      });
+      score = response.score;
+      correct = response.correct;
+      passed = response.passed;
+      questionSetHash = response.questions_hash || this.lastServerQuestionsHash || questionSetHash;
+      diffHash = response.diff_hash || this.lastServerDiffHash || diffHash;
+
+      if (passed) {
+        for (const attestation of response.attestations) {
+          const artifactPath = attestation.artifact.path;
+          const issuedPath = await this.writeAttestationFile(
+            config.attestationSaveDir,
+            this.lastCommit,
+            config.attestationQuizId,
+            attestation.attestation_jwt,
+            buildAttestationSuffix(
+              artifactPath,
+              attestation.artifact.rangeStart,
+              attestation.artifact.rangeEnd
+            )
+          );
+          issuedAttestations.push({
+            token: attestation.attestation_jwt,
+            attestationPath: issuedPath,
+            artifactPath,
+            rangeStart: attestation.artifact.rangeStart,
+            rangeEnd: attestation.artifact.rangeEnd,
+          });
+        }
+      }
+    } else {
+      this.lastQuiz.questions.forEach((question, index) => {
+        if (question.answerIndex !== undefined && answers[index] === question.answerIndex) {
+          correct += 1;
+        }
+      });
+      score = total === 0 ? 0 : Math.round((correct / total) * 100);
+      const passScore = config.passScore;
+      passed = score >= passScore;
+    }
 
     if (passed) {
-      if (!config.attestationServerUrl) {
-        throw new Error('attestationServerUrl is not set in settings or environment.');
-      }
-      if (!config.attestationSubject) {
-        throw new Error('attestationSubject is not set in settings or environment.');
-      }
-      const durationMs = this.quizStartedAt ? Date.now() - this.quizStartedAt : undefined;
-      const issuedAttestations: IssuedAttestation[] = [];
-
-      for (const filePath of this.lastFiles) {
-        const ranges = extractChangedRanges(this.lastDiffsByFile[filePath] ?? '');
-        if (ranges.length === 0) {
-          const response = await issueAttestation(config.attestationServerUrl, {
-            sub: config.attestationSubject,
-            repo: this.lastRepo,
-            commit: this.lastCommit,
-            artifact: { path: filePath },
-            quiz_id: config.attestationQuizId,
-            quiz_version: config.attestationQuizVersion,
-            score,
-            duration_ms: durationMs,
-            questions_hash: questionSetHash,
-            answers_hash: answersHash,
-          });
-          const issuedToken = response.attestation_jwt;
-          const issuedPath = await this.writeAttestationFile(
-            config.attestationSaveDir,
-            this.lastCommit,
-            config.attestationQuizId,
-            issuedToken,
-            buildAttestationSuffix(filePath)
-          );
-          issuedAttestations.push({
-            token: issuedToken,
-            attestationPath: issuedPath,
-            artifactPath: filePath,
-          });
-          continue;
+      if (issuedAttestations.length === 0) {
+        if (!config.attestationServerUrl) {
+          throw new Error('attestationServerUrl is not set in settings or environment.');
         }
+        if (!config.attestationSubject) {
+          throw new Error('attestationSubject is not set in settings or environment.');
+        }
+        const durationMs = this.quizStartedAt ? Date.now() - this.quizStartedAt : undefined;
+        for (const filePath of this.lastFiles) {
+          const ranges = extractChangedRanges(this.lastDiffsByFile[filePath] ?? '');
+          if (ranges.length === 0) {
+            const response = await issueAttestation(config.attestationServerUrl, {
+              sub: config.attestationSubject,
+              repo: this.lastRepo,
+              commit: this.lastCommit,
+              artifact: { path: filePath },
+              quiz_id: config.attestationQuizId,
+              quiz_version: config.attestationQuizVersion,
+              score,
+              duration_ms: durationMs,
+              questions_hash: questionSetHash,
+              answers_hash: answersHash,
+            });
+            const issuedToken = response.attestation_jwt;
+            const issuedPath = await this.writeAttestationFile(
+              config.attestationSaveDir,
+              this.lastCommit,
+              config.attestationQuizId,
+              issuedToken,
+              buildAttestationSuffix(filePath)
+            );
+            issuedAttestations.push({
+              token: issuedToken,
+              attestationPath: issuedPath,
+              artifactPath: filePath,
+            });
+            continue;
+          }
 
-        for (const range of ranges) {
-          const response = await issueAttestation(config.attestationServerUrl, {
-            sub: config.attestationSubject,
-            repo: this.lastRepo,
-            commit: this.lastCommit,
-            artifact: {
-              path: filePath,
+          for (const range of ranges) {
+            const response = await issueAttestation(config.attestationServerUrl, {
+              sub: config.attestationSubject,
+              repo: this.lastRepo,
+              commit: this.lastCommit,
+              artifact: {
+                path: filePath,
+                rangeStart: range.rangeStart,
+                rangeEnd: range.rangeEnd,
+              },
+              quiz_id: config.attestationQuizId,
+              quiz_version: config.attestationQuizVersion,
+              score,
+              duration_ms: durationMs,
+              questions_hash: questionSetHash,
+              answers_hash: answersHash,
+            });
+            const issuedToken = response.attestation_jwt;
+            const issuedPath = await this.writeAttestationFile(
+              config.attestationSaveDir,
+              this.lastCommit,
+              config.attestationQuizId,
+              issuedToken,
+              buildAttestationSuffix(filePath, range.rangeStart, range.rangeEnd)
+            );
+            issuedAttestations.push({
+              token: issuedToken,
+              attestationPath: issuedPath,
+              artifactPath: filePath,
               rangeStart: range.rangeStart,
               rangeEnd: range.rangeEnd,
-            },
-            quiz_id: config.attestationQuizId,
-            quiz_version: config.attestationQuizVersion,
-            score,
-            duration_ms: durationMs,
-            questions_hash: questionSetHash,
-            answers_hash: answersHash,
-          });
-          const issuedToken = response.attestation_jwt;
-          const issuedPath = await this.writeAttestationFile(
-            config.attestationSaveDir,
-            this.lastCommit,
-            config.attestationQuizId,
-            issuedToken,
-            buildAttestationSuffix(filePath, range.rangeStart, range.rangeEnd)
-          );
-          issuedAttestations.push({
-            token: issuedToken,
-            attestationPath: issuedPath,
-            artifactPath: filePath,
-            rangeStart: range.rangeStart,
-            rangeEnd: range.rangeEnd,
-          });
+            });
+          }
         }
       }
 

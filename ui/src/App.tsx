@@ -9,7 +9,7 @@ type QuizQuestion = {
   filePath: string;
   question: string;
   options: [string, string, string, string];
-  answerIndex: number;
+  answerIndex?: number;
   rationale?: string;
 };
 
@@ -555,7 +555,8 @@ export default function App() {
           <div className="review">
             {quizSet.questions.map((question, index) => {
               const selected = answers[index];
-              const isCorrect = selected === question.answerIndex;
+              const hasAnswerKey = typeof question.answerIndex === 'number';
+              const isCorrect = hasAnswerKey && selected === question.answerIndex;
               return (
                 <div key={`${question.filePath}-${index}`} className="review-item">
                   <p className="meta">第 {index + 1} 問 / {question.filePath}</p>
@@ -563,7 +564,9 @@ export default function App() {
                   <p className={isCorrect ? 'pass' : 'fail'}>
                     {isCorrect ? '正解' : '不正解'}（選択: {selected >= 0 ? question.options[selected] : '未回答'}）
                   </p>
-                  <p className="meta">正解: {question.options[question.answerIndex]}</p>
+                  <p className="meta">
+                    正解: {hasAnswerKey ? question.options[question.answerIndex as number] : 'サーバー採点'}
+                  </p>
                   <p className="rationale">{question.rationale || '（解説なし）'}</p>
                 </div>
               );
