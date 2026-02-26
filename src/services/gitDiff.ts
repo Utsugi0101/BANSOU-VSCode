@@ -15,6 +15,24 @@ async function execGitOptional(
   }
 }
 
+async function getWorkingTreeFiles(cwd: string): Promise<string[]> {
+  const { stdout } = await execFileAsync('git', ['diff', '--name-only'], { cwd });
+  return stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+async function getHeadCommitFiles(cwd: string): Promise<string[]> {
+  const { stdout } = await execFileAsync('git', ['show', '--pretty=', '--name-only', 'HEAD'], {
+    cwd,
+  });
+  return stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 export type GitDiffInfo = {
   root: string;
   branch: string;
@@ -38,16 +56,10 @@ export async function getGitMetadata(cwd: string): Promise<GitDiffInfo> {
     execGitOptional(cwd, ['config', '--get', 'user.email']),
   ]);
 
-  const { stdout: filesRaw } = await execFileAsync(
-    'git',
-    ['diff', '--name-only'],
-    { cwd }
-  );
-
-  const files = filesRaw
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
+  let files = await getWorkingTreeFiles(cwd);
+  if (files.length === 0) {
+    files = await getHeadCommitFiles(cwd);
+  }
 
   return {
     root: root.trim(),
@@ -68,7 +80,15 @@ export async function getDiffForFile(
     cwd,
     maxBuffer: 10 * 1024 * 1024,
   });
-  return stdout;
+  if (stdout.trim().length > 0) {
+    return stdout;
+  }
+
+  const { stdout: headDiff } = await execFileAsync('git', ['show', 'HEAD', '--', filePath], {
+    cwd,
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  return headDiff;
 }
 
 export function countChangedLines(diffText: string): number {

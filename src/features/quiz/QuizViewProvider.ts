@@ -223,6 +223,37 @@ function buildChecklistMarkdown(input: ChecklistInput): string {
   return lines.join('\n');
 }
 
+function buildLocalQuizSet(
+  files: string[],
+  diffsByFile: Record<string, string>,
+  desiredCount: number,
+  title: string
+): QuizSet {
+  const questions = files.slice(0, Math.max(1, desiredCount)).map((filePath) => {
+    const diff = diffsByFile[filePath] ?? '';
+    const changedLines = countChangedLines(diff);
+    const options: [string, string, string, string] = [
+      '変更目的と影響範囲を説明できる状態',
+      'ファイル名だけ把握している状態',
+      '動作確認せずにマージできる状態',
+      '差分を見ずに推測でレビューする状態',
+    ];
+    return {
+      filePath,
+      question: `${filePath} の変更をレビューする上で最も適切な姿勢はどれですか？`,
+      options,
+      answerIndex: 0,
+      rationale: `このファイルの検出変更行数は ${changedLines} 行です。目的・影響・確認内容を言語化できる状態を目標にしてください。`,
+      hunkSummary: `Detected changed lines: ${changedLines}`,
+    };
+  });
+
+  return {
+    title: `${title} (local template)`,
+    questions,
+  };
+}
+
 export class QuizViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = 'bansou.sidebar';
 
@@ -292,6 +323,7 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
       const messageText =
         error instanceof Error ? error.message : 'Unknown error.';
       this.postMessage({ type: 'error', message: messageText });
+      void vscode.window.showErrorMessage(`BANSOU: ${messageText}`);
     }
   }
 
@@ -335,12 +367,26 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
     }
     this.lastDiffsByFile = diffsByFile;
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is not set in the environment.');
+    const config = this.getConfig();
+    const shouldUseLocalQuiz = config.openAIMode === 'localOnly' || !process.env.OPENAI_API_KEY;
+    if (shouldUseLocalQuiz) {
+      const quizSet = buildLocalQuizSet(
+        files,
+        diffsByFile,
+        config.questionCount === 'auto'
+          ? desiredQuestionCount(totalChanged)
+          : config.questionCount,
+        `Quiz for ${this.lastBranch || 'workspace'} @ ${new Date().toISOString()}`
+      );
+      const shuffledQuiz = shuffleQuizOptions(quizSet);
+      this.lastQuiz = shuffledQuiz;
+      this.lastFiles = files;
+      this.quizStartedAt = Date.now();
+      this.postMessage({ type: 'quizSet', quizSet: shuffledQuiz });
+      return;
     }
 
-    const config = this.getConfig();
+    const apiKey = process.env.OPENAI_API_KEY as string;
     const model = config.model;
     const client = new OpenAIResponsesClient(apiKey, model);
     const redactedDiffs: Record<string, string> = {};

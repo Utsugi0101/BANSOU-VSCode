@@ -6,7 +6,14 @@ import { QuizViewProvider } from './features/quiz/QuizViewProvider';
 import { openOfficialDocs } from './features/docs/openOfficialDocs';
 import { DocsWebviewViewProvider } from './features/docs/DocsWebviewViewProvider';
 
+let isActivated = false;
+
 export function activate(context: vscode.ExtensionContext) {
+  if (isActivated) {
+    return;
+  }
+  isActivated = true;
+
   const output = vscode.window.createOutputChannel('BANSOU');
   output.appendLine('BANSOU activate');
   loadDotEnv();
@@ -57,7 +64,9 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
-export function deactivate() {}
+export function deactivate() {
+  isActivated = false;
+}
 
 function loadDotEnv(): void {
   const folder = vscode.workspace.workspaceFolders?.[0];
