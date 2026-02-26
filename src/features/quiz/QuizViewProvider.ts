@@ -28,6 +28,14 @@ const DEFAULT_EXCLUDED_GLOBS = [
   '.bansou/**',
   '**/*.jwt',
   '**/checklist-*.md',
+  '**/*.md',
+  '**/*.markdown',
+  '**/*.json',
+  '**/*.yml',
+  '**/*.yaml',
+  '**/*.toml',
+  '**/*.ini',
+  '**/*.cfg',
   'package-lock.json',
   'package.json',
   'pnpm-lock.yaml',
@@ -46,6 +54,14 @@ const DEFAULT_EXCLUDED_GLOBS = [
 const HARD_EXCLUDED_GLOBS = [
   '.bansou/**',
   '**/*.jwt',
+  '**/*.md',
+  '**/*.markdown',
+  '**/*.json',
+  '**/*.yml',
+  '**/*.yaml',
+  '**/*.toml',
+  '**/*.ini',
+  '**/*.cfg',
 ];
 
 function desiredQuestionCount(totalChangedLines: number): number {
