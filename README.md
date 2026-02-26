@@ -101,3 +101,13 @@ Repository Variables に `BANSOU_MIN_SCORE` を設定（サーバ側の設定に
 
 - OpenAI には選択された差分のみ送信
 - `OPENAI_API_KEY` などのパターンは簡易マスク
+
+## Marketplace 公開
+
+```sh
+npm run package:vsix
+npm run publish:marketplace
+```
+
+GitHub Actions からは `.github/workflows/publish-extension.yml` を利用できます。  
+必要な Secret: `VSCE_PAT`
