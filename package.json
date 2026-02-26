@@ -3,7 +3,7 @@
   "publisher": "utsugi0101",
   "displayName": "BANSOU",
   "description": "BANSOU: git diff comprehension quiz and proof tokens.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "engines": {
     "vscode": "^1.108.0"
   },
@@ -186,7 +186,12 @@
               "kind": "react",
               "pattern": "\\\\buse(State|Effect|Memo|Callback|Ref|Reducer|Context|LayoutEffect|ImperativeHandle|Transition|DeferredValue)\\\\b",
               "url": "https://ja.react.dev/reference/react",
-              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+              "languageIds": [
+                "javascript",
+                "typescript",
+                "javascriptreact",
+                "typescriptreact"
+              ]
             },
             {
               "id": "react-context",
@@ -194,7 +199,12 @@
               "kind": "react",
               "pattern": "\\\\b(createContext|useContext|Context\\\\.Provider|Context\\\\.Consumer)\\\\b",
               "url": "https://ja.react.dev/reference/react/createContext",
-              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+              "languageIds": [
+                "javascript",
+                "typescript",
+                "javascriptreact",
+                "typescriptreact"
+              ]
             },
             {
               "id": "react-jsx",
@@ -202,7 +212,10 @@
               "kind": "react",
               "pattern": "<[A-Z][A-Za-z0-9]*[\\n\\s\\S]*?>",
               "url": "https://ja.react.dev/learn/writing-markup-with-jsx",
-              "languageIds": ["javascriptreact", "typescriptreact"]
+              "languageIds": [
+                "javascriptreact",
+                "typescriptreact"
+              ]
             },
             {
               "id": "react-fragments",
@@ -210,7 +223,10 @@
               "kind": "react",
               "pattern": "<>|<React\\\\.Fragment>|<Fragment>",
               "url": "https://ja.react.dev/reference/react/Fragment",
-              "languageIds": ["javascriptreact", "typescriptreact"]
+              "languageIds": [
+                "javascriptreact",
+                "typescriptreact"
+              ]
             },
             {
               "id": "react-forward-ref",
@@ -218,7 +234,12 @@
               "kind": "react",
               "pattern": "\\\\bforwardRef\\\\b",
               "url": "https://ja.react.dev/reference/react/forwardRef",
-              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+              "languageIds": [
+                "javascript",
+                "typescript",
+                "javascriptreact",
+                "typescriptreact"
+              ]
             },
             {
               "id": "react-memo",
@@ -226,7 +247,12 @@
               "kind": "react",
               "pattern": "\\\\bReact\\\\.memo\\\\b|\\\\bmemo\\\\b",
               "url": "https://ja.react.dev/reference/react/memo",
-              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+              "languageIds": [
+                "javascript",
+                "typescript",
+                "javascriptreact",
+                "typescriptreact"
+              ]
             },
             {
               "id": "react-callbacks",
@@ -234,7 +260,12 @@
               "kind": "react",
               "pattern": "\\\\buseCallback\\\\b|\\\\buseMemo\\\\b",
               "url": "https://ja.react.dev/reference/react/useCallback",
-              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+              "languageIds": [
+                "javascript",
+                "typescript",
+                "javascriptreact",
+                "typescriptreact"
+              ]
             },
             {
               "id": "react-router",
@@ -242,7 +273,12 @@
               "kind": "react",
               "pattern": "\\\\buseNavigate\\\\b|\\\\bRoute\\\\b|\\\\bRoutes\\\\b|\\\\bLink\\\\b",
               "url": "https://reactrouter.com/en/main",
-              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+              "languageIds": [
+                "javascript",
+                "typescript",
+                "javascriptreact",
+                "typescriptreact"
+              ]
             },
             {
               "id": "react-suspense",
@@ -250,7 +286,12 @@
               "kind": "react",
               "pattern": "\\\\bSuspense\\\\b|\\\\blazy\\\\b",
               "url": "https://ja.react.dev/reference/react/Suspense",
-              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+              "languageIds": [
+                "javascript",
+                "typescript",
+                "javascriptreact",
+                "typescriptreact"
+              ]
             },
             {
               "id": "react-use-client",
@@ -258,7 +299,12 @@
               "kind": "react",
               "pattern": "\\\\buse\\\\s+client\\\\b",
               "url": "https://nextjs.org/docs/app/building-your-application/rendering/client-components",
-              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+              "languageIds": [
+                "javascript",
+                "typescript",
+                "javascriptreact",
+                "typescriptreact"
+              ]
             },
             {
               "id": "next-server-components",
@@ -266,7 +312,12 @@
               "kind": "react",
               "pattern": "\\\\buse\\\\s+server\\\\b",
               "url": "https://nextjs.org/docs/app/building-your-application/rendering/server-components",
-              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+              "languageIds": [
+                "javascript",
+                "typescript",
+                "javascriptreact",
+                "typescriptreact"
+              ]
             },
             {
               "id": "next-data-fetching",
@@ -274,7 +325,12 @@
               "kind": "react",
               "pattern": "\\\\bNextResponse\\\\b|\\\\bNextRequest\\\\b|\\\\broute\\\\.ts\\\\b",
               "url": "https://nextjs.org/docs/app/building-your-application/routing/route-handlers",
-              "languageIds": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+              "languageIds": [
+                "javascript",
+                "typescript",
+                "javascriptreact",
+                "typescriptreact"
+              ]
             },
             {
               "id": "ts-generics",
@@ -282,7 +338,10 @@
               "kind": "typescript",
               "pattern": "<[A-Z][A-Za-z0-9_]*\\\\s*[,>]",
               "url": "https://www.typescriptlang.org/ja/docs/handbook/2/generics.html",
-              "languageIds": ["typescript", "typescriptreact"]
+              "languageIds": [
+                "typescript",
+                "typescriptreact"
+              ]
             },
             {
               "id": "ts-union-intersection",
@@ -290,7 +349,10 @@
               "kind": "typescript",
               "pattern": "\\\\|\\\\s*[^=\\n]+|&\\\\s*[^=\\n]+",
               "url": "https://www.typescriptlang.org/ja/docs/handbook/2/everyday-types.html#union-types",
-              "languageIds": ["typescript", "typescriptreact"]
+              "languageIds": [
+                "typescript",
+                "typescriptreact"
+              ]
             },
             {
               "id": "ts-keyof",
@@ -298,7 +360,10 @@
               "kind": "typescript",
               "pattern": "\\\\bkeyof\\\\b|\\\\btypeof\\\\b",
               "url": "https://www.typescriptlang.org/ja/docs/handbook/2/keyof-types.html",
-              "languageIds": ["typescript", "typescriptreact"]
+              "languageIds": [
+                "typescript",
+                "typescriptreact"
+              ]
             },
             {
               "id": "ts-conditional",
@@ -306,7 +371,10 @@
               "kind": "typescript",
               "pattern": "\\\\bextends\\\\b[\\n\\s\\S]+\\\\?",
               "url": "https://www.typescriptlang.org/ja/docs/handbook/2/conditional-types.html",
-              "languageIds": ["typescript", "typescriptreact"]
+              "languageIds": [
+                "typescript",
+                "typescriptreact"
+              ]
             },
             {
               "id": "ts-mapped",
@@ -314,7 +382,10 @@
               "kind": "typescript",
               "pattern": "\\\\{\\\\s*\\\\[.+\\\\]\\s*:\\\\s*.+\\\\}",
               "url": "https://www.typescriptlang.org/ja/docs/handbook/2/mapped-types.html",
-              "languageIds": ["typescript", "typescriptreact"]
+              "languageIds": [
+                "typescript",
+                "typescriptreact"
+              ]
             },
             {
               "id": "ts-asserts",
@@ -322,7 +393,10 @@
               "kind": "typescript",
               "pattern": "\\\\bas\\\\s+[A-Za-z_$][A-Za-z0-9_$\\.\\[\\]<>]*",
               "url": "https://www.typescriptlang.org/ja/docs/handbook/2/everyday-types.html#type-assertions",
-              "languageIds": ["typescript", "typescriptreact"]
+              "languageIds": [
+                "typescript",
+                "typescriptreact"
+              ]
             },
             {
               "id": "ts-satisfies",
@@ -330,7 +404,10 @@
               "kind": "typescript",
               "pattern": "\\\\bsatisfies\\\\b",
               "url": "https://www.typescriptlang.org/ja/docs/handbook/release-notes/typescript-4-9.html",
-              "languageIds": ["typescript", "typescriptreact"]
+              "languageIds": [
+                "typescript",
+                "typescriptreact"
+              ]
             },
             {
               "id": "ts-import-type",
@@ -338,7 +415,10 @@
               "kind": "typescript",
               "pattern": "\\\\bimport\\\\s+type\\\\b",
               "url": "https://www.typescriptlang.org/ja/docs/handbook/2/modules.html#importing-types",
-              "languageIds": ["typescript", "typescriptreact"]
+              "languageIds": [
+                "typescript",
+                "typescriptreact"
+              ]
             },
             {
               "id": "ts-enum",
@@ -346,7 +426,10 @@
               "kind": "typescript",
               "pattern": "\\\\benum\\\\b",
               "url": "https://www.typescriptlang.org/ja/docs/handbook/enums.html",
-              "languageIds": ["typescript", "typescriptreact"]
+              "languageIds": [
+                "typescript",
+                "typescriptreact"
+              ]
             },
             {
               "id": "ts-namespace",
@@ -354,7 +437,10 @@
               "kind": "typescript",
               "pattern": "\\\\bnamespace\\\\b",
               "url": "https://www.typescriptlang.org/ja/docs/handbook/namespaces.html",
-              "languageIds": ["typescript", "typescriptreact"]
+              "languageIds": [
+                "typescript",
+                "typescriptreact"
+              ]
             },
             {
               "id": "ts-decorators",
@@ -362,16 +448,20 @@
               "kind": "typescript",
               "pattern": "@[A-Za-z_$][A-Za-z0-9_$]*",
               "url": "https://www.typescriptlang.org/ja/docs/handbook/decorators.html",
-              "languageIds": ["typescript", "typescriptreact"]
-            }
-            ,
+              "languageIds": [
+                "typescript",
+                "typescriptreact"
+              ]
+            },
             {
               "id": "py-dataclasses",
               "label": "dataclasses",
               "kind": "general",
               "pattern": "@dataclass|dataclasses\\.dataclass",
               "url": "https://docs.python.org/3/library/dataclasses.html",
-              "languageIds": ["python"]
+              "languageIds": [
+                "python"
+              ]
             },
             {
               "id": "py-future-annotations",
@@ -379,7 +469,9 @@
               "kind": "general",
               "pattern": "from\\s+__future__\\s+import\\s+annotations",
               "url": "https://docs.python.org/3/library/__future__.html",
-              "languageIds": ["python"]
+              "languageIds": [
+                "python"
+              ]
             },
             {
               "id": "py-typing",
@@ -387,7 +479,9 @@
               "kind": "general",
               "pattern": "\\\\btyping\\\\b|\\\\bOptional\\\\b|\\\\bIterable\\\\b|\\\\bProtocol\\\\b|\\\\bTypedDict\\\\b|->\\\\s*[A-Za-z_][A-Za-z0-9_\\[\\],\\.\\s]*",
               "url": "https://docs.python.org/3/library/typing.html",
-              "languageIds": ["python"]
+              "languageIds": [
+                "python"
+              ]
             },
             {
               "id": "py-asyncio",
@@ -395,7 +489,9 @@
               "kind": "general",
               "pattern": "\\\\basync\\\\s+def\\\\b|\\\\bawait\\\\b|\\\\basyncio\\\\b",
               "url": "https://docs.python.org/3/library/asyncio.html",
-              "languageIds": ["python"]
+              "languageIds": [
+                "python"
+              ]
             },
             {
               "id": "py-pathlib",
@@ -403,7 +499,9 @@
               "kind": "general",
               "pattern": "\\\\bPath\\\\b|\\\\bpathlib\\\\b",
               "url": "https://docs.python.org/3/library/pathlib.html",
-              "languageIds": ["python"]
+              "languageIds": [
+                "python"
+              ]
             },
             {
               "id": "py-contextlib",
@@ -411,7 +509,9 @@
               "kind": "general",
               "pattern": "\\\\bcontextlib\\\\b|\\\\bcontextmanager\\\\b|with\\\\s+[^:]+:",
               "url": "https://docs.python.org/3/library/contextlib.html",
-              "languageIds": ["python"]
+              "languageIds": [
+                "python"
+              ]
             },
             {
               "id": "py-collections",
@@ -419,25 +519,50 @@
               "kind": "general",
               "pattern": "\\\\bcollections\\\\b|\\\\bdeque\\\\b|\\\\bCounter\\\\b|\\\\bdefaultdict\\\\b",
               "url": "https://docs.python.org/3/library/collections.html",
-              "languageIds": ["python"]
+              "languageIds": [
+                "python"
+              ]
             }
           ],
           "items": {
             "type": "object",
             "properties": {
-              "id": { "type": "string" },
-              "label": { "type": "string" },
-              "kind": { "type": "string", "enum": ["react", "typescript", "general"] },
-              "pattern": { "type": "string" },
-              "url": { "type": "string" },
-              "languageIds": { "type": "array", "items": { "type": "string" } }
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "react",
+                  "typescript",
+                  "general"
+                ]
+              },
+              "pattern": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "languageIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
             }
           },
           "description": "言語/フレームワーク特有の書き方や機能を検知するルール（正規表現）。"
         },
         "bansou.docs.openLocation": {
           "type": "string",
-          "enum": ["internal", "external"],
+          "enum": [
+            "internal",
+            "external"
+          ],
           "default": "external",
           "description": "公式ドキュメントをVS Code内で開くか外部ブラウザで開くかを選択します。"
         },
@@ -448,7 +573,10 @@
         },
         "understandingQuiz.openAIMode": {
           "type": "string",
-          "enum": ["localOnly", "useOpenAI"],
+          "enum": [
+            "localOnly",
+            "useOpenAI"
+          ],
           "default": "localOnly",
           "description": "Generate summary/PR draft locally or via OpenAI."
         },
@@ -475,7 +603,10 @@
           "description": "Globs to exclude from quiz by default."
         },
         "understandingQuiz.questionCount": {
-          "type": ["string", "number"],
+          "type": [
+            "string",
+            "number"
+          ],
           "default": "auto",
           "description": "Number of questions or 'auto' to derive from diff size."
         },
@@ -511,7 +642,10 @@
         },
         "understandingQuiz.proofStorageMode": {
           "type": "string",
-          "enum": ["serverOnly", "repository"],
+          "enum": [
+            "serverOnly",
+            "repository"
+          ],
           "default": "serverOnly",
           "description": "Where to store proof tokens: server ledger only or repository files."
         },
@@ -527,13 +661,19 @@
         },
         "understandingQuiz.tokenSecretSource": {
           "type": "string",
-          "enum": ["envOnly"],
+          "enum": [
+            "envOnly"
+          ],
           "default": "envOnly",
           "description": "Token signing secret source."
         },
         "understandingQuiz.githubIntegration": {
           "type": "string",
-          "enum": ["off", "copyTemplate", "postComment"],
+          "enum": [
+            "off",
+            "copyTemplate",
+            "postComment"
+          ],
           "default": "copyTemplate",
           "description": "PR integration mode."
         },
