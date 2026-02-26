@@ -25,6 +25,9 @@ type WebviewMessage =
   | { type: 'submitAnswers'; answers: number[] };
 
 const DEFAULT_EXCLUDED_GLOBS = [
+  '.bansou/**',
+  '**/*.jwt',
+  '**/checklist-*.md',
   'package-lock.json',
   'package.json',
   'pnpm-lock.yaml',
@@ -38,6 +41,11 @@ const DEFAULT_EXCLUDED_GLOBS = [
   '**/*.jpeg',
   '**/*.gif',
   '**/*.pdf',
+];
+
+const HARD_EXCLUDED_GLOBS = [
+  '.bansou/**',
+  '**/*.jwt',
 ];
 
 function desiredQuestionCount(totalChangedLines: number): number {
@@ -371,12 +379,16 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
 
     const config = this.getConfig();
     const excludeGlobs = config.excludeGlobs;
-    const diffFiles: DiffFile[] = metadata.files.map((filePath) => ({
-      path: filePath,
-      isExcludedByDefault: excludeGlobs.some((pattern) =>
-        matchesGlob(filePath, pattern)
-      ),
-    }));
+    const diffFiles: DiffFile[] = metadata.files
+      .filter((filePath) =>
+        !HARD_EXCLUDED_GLOBS.some((pattern) => matchesGlob(filePath, pattern))
+      )
+      .map((filePath) => ({
+        path: filePath,
+        isExcludedByDefault: excludeGlobs.some((pattern) =>
+          matchesGlob(filePath, pattern)
+        ),
+      }));
     this.postMessage({
       type: 'diffFiles',
       diffFiles,

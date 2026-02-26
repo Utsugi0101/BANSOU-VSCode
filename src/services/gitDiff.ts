@@ -23,6 +23,46 @@ async function getWorkingTreeFiles(cwd: string): Promise<string[]> {
     .filter(Boolean);
 }
 
+async function getDefaultBaseRef(cwd: string): Promise<string> {
+  const remoteHead = await execGitOptional(cwd, [
+    'symbolic-ref',
+    '--short',
+    'refs/remotes/origin/HEAD',
+  ]);
+  if (remoteHead) {
+    return remoteHead;
+  }
+  const localDefault = await execGitOptional(cwd, [
+    'rev-parse',
+    '--abbrev-ref',
+    '--symbolic-full-name',
+    '@{upstream}',
+  ]);
+  if (localDefault) {
+    return localDefault;
+  }
+  return 'origin/main';
+}
+
+async function getMergeBase(cwd: string, baseRef: string): Promise<string> {
+  return execGitOptional(cwd, ['merge-base', 'HEAD', baseRef]);
+}
+
+async function getBranchDiffFiles(cwd: string): Promise<string[]> {
+  const baseRef = await getDefaultBaseRef(cwd);
+  const mergeBase = await getMergeBase(cwd, baseRef);
+  if (!mergeBase) {
+    return [];
+  }
+  const { stdout } = await execFileAsync('git', ['diff', '--name-only', `${mergeBase}..HEAD`], {
+    cwd,
+  });
+  return stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 async function getHeadCommitFiles(cwd: string): Promise<string[]> {
   const { stdout } = await execFileAsync('git', ['show', '--pretty=', '--name-only', 'HEAD'], {
     cwd,
@@ -31,6 +71,27 @@ async function getHeadCommitFiles(cwd: string): Promise<string[]> {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+async function getBranchDiffForFile(cwd: string, filePath: string): Promise<string> {
+  const baseRef = await getDefaultBaseRef(cwd);
+  const mergeBase = await getMergeBase(cwd, baseRef);
+  if (!mergeBase) {
+    return '';
+  }
+  try {
+    const { stdout } = await execFileAsync(
+      'git',
+      ['diff', `${mergeBase}..HEAD`, '--', filePath],
+      {
+        cwd,
+        maxBuffer: 10 * 1024 * 1024,
+      }
+    );
+    return stdout;
+  } catch {
+    return '';
+  }
 }
 
 export type GitDiffInfo = {
@@ -58,6 +119,9 @@ export async function getGitMetadata(cwd: string): Promise<GitDiffInfo> {
 
   let files = await getWorkingTreeFiles(cwd);
   if (files.length === 0) {
+    files = await getBranchDiffFiles(cwd);
+  }
+  if (files.length === 0) {
     files = await getHeadCommitFiles(cwd);
   }
 
@@ -82,6 +146,11 @@ export async function getDiffForFile(
   });
   if (stdout.trim().length > 0) {
     return stdout;
+  }
+
+  const branchDiff = await getBranchDiffForFile(cwd, filePath);
+  if (branchDiff.trim().length > 0) {
+    return branchDiff;
   }
 
   const { stdout: headDiff } = await execFileAsync('git', ['show', 'HEAD', '--', filePath], {
