@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import * as vscode from 'vscode';
 import { getDiffForFile, getGitMetadata, countChangedLines } from '../../services/gitDiff';
 import { OpenAIResponsesClient } from '../../services/openaiClient';
@@ -14,6 +14,9 @@ type WebviewMessage =
   | { type: 'getDiffFiles' }
   | { type: 'generateQuiz'; files: string[] }
   | { type: 'generateSummary'; files: string[] }
+  | { type: 'generateChecklist'; files: string[] }
+  | { type: 'issueChecklistToken'; path?: string }
+  | { type: 'openChecklist'; path?: string }
   | { type: 'submitAnswers'; answers: number[] };
 
 const DEFAULT_EXCLUDED_GLOBS = [
@@ -64,14 +67,160 @@ function normalizeRepoSlug(remoteUrl: string, fallback: string): string {
   return fallback;
 }
 
-function buildPrTemplate(token: string, attestationPath: string): string {
+type ChecklistInput = {
+  repo: string;
+  branch: string;
+  commit: string;
+  files: string[];
+  diffsByFile: Record<string, string>;
+  minChecked: number;
+};
+
+type ChecklistProgress = {
+  checked: number;
+  total: number;
+};
+
+type DiffRange = {
+  rangeStart: number;
+  rangeEnd: number;
+};
+
+type IssuedAttestation = {
+  token: string;
+  attestationPath: string;
+  artifactPath: string;
+  rangeStart?: number;
+  rangeEnd?: number;
+};
+
+function computeChecklistHash(markdown: string): string {
+  return createHash('sha256').update(markdown).digest('base64url');
+}
+
+function extractChecklistProgress(markdown: string): ChecklistProgress {
+  const lines = markdown.split(/\r?\n/);
+  let checked = 0;
+  let total = 0;
+  for (const line of lines) {
+    const match = line.match(/^\s*-\s*\[(?<state>[xX\s])\]\s+/);
+    if (!match?.groups?.state) continue;
+    total += 1;
+    if (match.groups.state.toLowerCase() === 'x') {
+      checked += 1;
+    }
+  }
+  return { checked, total };
+}
+
+function countDiffLines(diffText: string): { added: number; removed: number } {
+  let added = 0;
+  let removed = 0;
+  const lines = diffText.split('\n');
+  for (const line of lines) {
+    if (line.startsWith('+++') || line.startsWith('---')) continue;
+    if (line.startsWith('+')) added += 1;
+    if (line.startsWith('-')) removed += 1;
+  }
+  return { added, removed };
+}
+
+function extractChangedRanges(diffText: string): DiffRange[] {
+  const ranges: DiffRange[] = [];
+  const lines = diffText.split('\n');
+  for (const line of lines) {
+    const match = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/);
+    if (!match) continue;
+    const start = Number(match[1]);
+    const length = match[2] ? Number(match[2]) : 1;
+    const end = length > 0 ? start + length - 1 : start;
+    ranges.push({ rangeStart: start, rangeEnd: end });
+  }
+  return ranges;
+}
+
+function buildAttestationSuffix(
+  artifactPath: string,
+  rangeStart?: number,
+  rangeEnd?: number
+): string {
+  const hashInput = `${artifactPath}:${rangeStart ?? ''}:${rangeEnd ?? ''}`;
+  const hash = createHash('sha256').update(hashInput).digest('hex').slice(0, 12);
+  if (rangeStart !== undefined && rangeEnd !== undefined) {
+    return `f-${hash}-L${rangeStart}-${rangeEnd}`;
+  }
+  return `f-${hash}`;
+}
+
+function buildPrTemplate(attestations: IssuedAttestation[]): string {
+  const primary = attestations[0];
+  if (!primary) {
+    return '';
+  }
   return [
     '## 理解トークン',
     '',
-    `- BANSOU: ${token}`,
-    `- BANSOU-ATTESTATION: ${attestationPath}`,
+    `- BANSOU: ${primary.token}`,
+    `- BANSOU-ATTESTATION: ${primary.attestationPath}`,
+    '',
+    '### Attestation Artifacts',
+    ...attestations.map((entry) => {
+      const rangeLabel =
+        entry.rangeStart !== undefined && entry.rangeEnd !== undefined
+          ? ` (L${entry.rangeStart}-L${entry.rangeEnd})`
+          : '';
+      return `- ${entry.artifactPath}${rangeLabel}: ${entry.attestationPath}`;
+    }),
     '',
   ].join('\n');
+}
+
+function buildChecklistMarkdown(input: ChecklistInput): string {
+  const createdAt = new Date().toISOString();
+  const lines: string[] = [];
+  lines.push('# 理解チェックシート');
+  lines.push('');
+  lines.push('## メタ情報');
+  lines.push(`- 生成日時: ${createdAt}`);
+  lines.push(`- リポジトリ: ${input.repo || 'workspace'}`);
+  lines.push(`- ブランチ: ${input.branch || 'unknown'}`);
+  lines.push(`- コミット: ${input.commit || 'unknown'}`);
+  lines.push(`- 対象ファイル数: ${input.files.length}`);
+  lines.push('');
+  lines.push('## 使い方');
+  lines.push(
+    `- 各項目を確認したら \`[x]\` にチェックを入れてください（最低チェック数: ${input.minChecked}）`
+  );
+  lines.push('- 未記入の自由記述欄は、必要に応じて埋めてください');
+  lines.push('');
+  lines.push('## 変更ファイル別の確認');
+  lines.push('');
+
+  for (const filePath of input.files) {
+    const diff = input.diffsByFile[filePath] ?? '';
+    const { added, removed } = countDiffLines(diff);
+    lines.push(`### ${filePath}`);
+    lines.push(`- 追加行: ${added} / 削除行: ${removed}`);
+    lines.push('- [ ] このファイルの変更目的を1文で説明した');
+    lines.push('- [ ] 主要なロジック・挙動の変更点を把握した');
+    lines.push('- [ ] 影響範囲（呼び出し元/依存/互換性）を確認した');
+    lines.push('- [ ] 例外/エッジケースやエラー処理を確認した');
+    lines.push('- [ ] テスト/動作確認の内容を確認した');
+    lines.push('');
+    lines.push('自由記述:');
+    lines.push('- 変更の要約: ');
+    lines.push('- 注意点/懸念: ');
+    lines.push('');
+  }
+
+  lines.push('## まとめ');
+  lines.push('- [ ] 変更全体の目的と影響を説明できる');
+  lines.push('- [ ] ロールバック/フォールバック手順を理解した');
+  lines.push('');
+  lines.push('自由記述:');
+  lines.push('- 全体メモ: ');
+  lines.push('');
+  return lines.join('\n');
 }
 
 export class QuizViewProvider implements vscode.WebviewViewProvider {
@@ -89,6 +238,10 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
   private lastSummary?: SummaryGenerationResponse;
   private lastErrorQuiz?: QuizSet;
   private quizStartedAt?: number;
+  private lastChecklistPath?: string;
+  private lastChecklistFiles: string[] = [];
+  private lastChecklistDiffsByFile: Record<string, string> = {};
+  private checklistStartedAt?: number;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -119,6 +272,15 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
           return;
         case 'generateSummary':
           await this.handleGenerateSummary(message.files);
+          return;
+        case 'generateChecklist':
+          await this.handleGenerateChecklist(message.files);
+          return;
+        case 'issueChecklistToken':
+          await this.handleIssueChecklistToken(message.path);
+          return;
+        case 'openChecklist':
+          await this.handleOpenChecklist(message.path);
           return;
         case 'submitAnswers':
           await this.handleSubmitAnswers(message.answers);
@@ -293,6 +455,123 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
+  private async handleGenerateChecklist(files: string[]): Promise<void> {
+    if (!files.length) {
+      throw new Error('チェックシート生成の対象ファイルを選択してください。');
+    }
+
+    const workspaceRoot = this.getWorkspaceRoot();
+    const diffsByFile: Record<string, string> = {};
+    for (const filePath of files) {
+      const diff = await getDiffForFile(workspaceRoot, filePath);
+      diffsByFile[filePath] = diff;
+    }
+
+    const config = this.getConfig();
+    const checklistMarkdown = buildChecklistMarkdown({
+      repo: this.lastRepo,
+      branch: this.lastBranch,
+      commit: this.lastCommit,
+      files,
+      diffsByFile,
+      minChecked: config.checklistMinChecked,
+    });
+    const checklistPath = await this.writeChecklistFile(
+      config.checklistSaveDir,
+      this.lastCommit,
+      checklistMarkdown
+    );
+
+    this.lastChecklistPath = checklistPath;
+    this.lastChecklistFiles = files;
+    this.lastChecklistDiffsByFile = diffsByFile;
+    this.checklistStartedAt = Date.now();
+
+    await this.openChecklistFile(checklistPath);
+
+    const progress = extractChecklistProgress(checklistMarkdown);
+    this.postMessage({
+      type: 'checklistReady',
+      path: checklistPath,
+      checked: progress.checked,
+      total: progress.total,
+      minChecked: config.checklistMinChecked,
+    });
+  }
+
+  private async handleIssueChecklistToken(pathOverride?: string): Promise<void> {
+    const checklistPath = pathOverride ?? this.lastChecklistPath;
+    if (!checklistPath) {
+      throw new Error('チェックシートが作成されていません。');
+    }
+
+    const workspaceRoot = this.getWorkspaceRoot();
+    const absolutePath = path.join(workspaceRoot, checklistPath);
+    const markdown = await fs.promises.readFile(absolutePath, 'utf8');
+    const progress = extractChecklistProgress(markdown);
+
+    const config = this.getConfig();
+    if (progress.checked < config.checklistMinChecked) {
+      throw new Error(
+        `チェック済みが不足しています（${progress.checked}/${config.checklistMinChecked}）。`
+      );
+    }
+
+    if (!config.attestationServerUrl) {
+      throw new Error('attestationServerUrl is not set in settings or environment.');
+    }
+    if (!config.attestationSubject) {
+      throw new Error('attestationSubject is not set in settings or environment.');
+    }
+
+    const durationMs = this.checklistStartedAt
+      ? Date.now() - this.checklistStartedAt
+      : undefined;
+    const artifactPath = checklistPath;
+    const checklistHash = computeChecklistHash(markdown);
+    const diffHash = computeDiffHash(this.lastChecklistDiffsByFile);
+    const score = progress.total
+      ? Math.round((progress.checked / progress.total) * 100)
+      : 100;
+
+    const response = await issueAttestation(config.attestationServerUrl, {
+      sub: config.attestationSubject,
+      repo: this.lastRepo,
+      commit: this.lastCommit,
+      artifact: { path: artifactPath },
+      quiz_id: config.attestationQuizId,
+      quiz_version: config.attestationQuizVersion,
+      score,
+      duration_ms: durationMs,
+      questions_hash: checklistHash,
+      answers_hash: diffHash,
+    });
+
+    const token = response.attestation_jwt;
+    const attestationPath = await this.writeChecklistAttestationFile(
+      config.attestationSaveDir,
+      this.lastCommit,
+      config.attestationQuizId,
+      token
+    );
+
+    this.postMessage({
+      type: 'checklistTokenIssued',
+      token,
+      attestationPath,
+      checked: progress.checked,
+      total: progress.total,
+    });
+  }
+
+  private async handleOpenChecklist(pathOverride?: string): Promise<void> {
+    const checklistPath = pathOverride ?? this.lastChecklistPath;
+    if (!checklistPath) {
+      throw new Error('チェックシートが作成されていません。');
+    }
+    await this.openChecklistFile(checklistPath);
+  }
+
   private async handleSubmitAnswers(answers: number[]): Promise<void> {
     if (!this.lastQuiz) {
       throw new Error('Quiz has not been generated yet.');
@@ -324,30 +603,81 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
         throw new Error('attestationSubject is not set in settings or environment.');
       }
       const durationMs = this.quizStartedAt ? Date.now() - this.quizStartedAt : undefined;
-      const artifactPath =
-        this.lastFiles.length === 1 ? this.lastFiles[0] : 'multiple-files';
+      const issuedAttestations: IssuedAttestation[] = [];
 
-      const response = await issueAttestation(config.attestationServerUrl, {
-        sub: config.attestationSubject,
-        repo: this.lastRepo,
-        commit: this.lastCommit,
-        artifact: { path: artifactPath },
-        quiz_id: config.attestationQuizId,
-        quiz_version: config.attestationQuizVersion,
-        score,
-        duration_ms: durationMs,
-        questions_hash: questionSetHash,
-        answers_hash: answersHash,
-      });
+      for (const filePath of this.lastFiles) {
+        const ranges = extractChangedRanges(this.lastDiffsByFile[filePath] ?? '');
+        if (ranges.length === 0) {
+          const response = await issueAttestation(config.attestationServerUrl, {
+            sub: config.attestationSubject,
+            repo: this.lastRepo,
+            commit: this.lastCommit,
+            artifact: { path: filePath },
+            quiz_id: config.attestationQuizId,
+            quiz_version: config.attestationQuizVersion,
+            score,
+            duration_ms: durationMs,
+            questions_hash: questionSetHash,
+            answers_hash: answersHash,
+          });
+          const issuedToken = response.attestation_jwt;
+          const issuedPath = await this.writeAttestationFile(
+            config.attestationSaveDir,
+            this.lastCommit,
+            config.attestationQuizId,
+            issuedToken,
+            buildAttestationSuffix(filePath)
+          );
+          issuedAttestations.push({
+            token: issuedToken,
+            attestationPath: issuedPath,
+            artifactPath: filePath,
+          });
+          continue;
+        }
 
-      token = response.attestation_jwt;
-      attestationPath = await this.writeAttestationFile(
-        config.attestationSaveDir,
-        this.lastCommit,
-        config.attestationQuizId,
-        token
-      );
-      prTemplate = buildPrTemplate(token, attestationPath);
+        for (const range of ranges) {
+          const response = await issueAttestation(config.attestationServerUrl, {
+            sub: config.attestationSubject,
+            repo: this.lastRepo,
+            commit: this.lastCommit,
+            artifact: {
+              path: filePath,
+              rangeStart: range.rangeStart,
+              rangeEnd: range.rangeEnd,
+            },
+            quiz_id: config.attestationQuizId,
+            quiz_version: config.attestationQuizVersion,
+            score,
+            duration_ms: durationMs,
+            questions_hash: questionSetHash,
+            answers_hash: answersHash,
+          });
+          const issuedToken = response.attestation_jwt;
+          const issuedPath = await this.writeAttestationFile(
+            config.attestationSaveDir,
+            this.lastCommit,
+            config.attestationQuizId,
+            issuedToken,
+            buildAttestationSuffix(filePath, range.rangeStart, range.rangeEnd)
+          );
+          issuedAttestations.push({
+            token: issuedToken,
+            attestationPath: issuedPath,
+            artifactPath: filePath,
+            rangeStart: range.rangeStart,
+            rangeEnd: range.rangeEnd,
+          });
+        }
+      }
+
+      if (issuedAttestations.length === 0) {
+        throw new Error('No attestations were issued for selected files.');
+      }
+
+      token = issuedAttestations[0].token;
+      attestationPath = issuedAttestations[0].attestationPath;
+      prTemplate = buildPrTemplate(issuedAttestations);
     }
 
     await saveSession(this.context, {
@@ -399,6 +729,8 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
     attestationQuizVersion: string;
     attestationSubject: string;
     attestationSaveDir: string;
+    checklistSaveDir: string;
+    checklistMinChecked: number;
   } {
     const config = vscode.workspace.getConfiguration('understandingQuiz');
     const model = config.get<string>('model', 'gpt-5-mini');
@@ -443,6 +775,10 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
     const attestationSaveDir =
       config.get<string>('attestationSaveDir', '.bansou/attestations') ||
       '.bansou/attestations';
+    const checklistSaveDir =
+      config.get<string>('checklistSaveDir', '.bansou/checklists') ||
+      '.bansou/checklists';
+    const checklistMinChecked = config.get<number>('checklistMinChecked', 0);
     return {
       model,
       passScore,
@@ -455,6 +791,8 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
       attestationQuizVersion,
       attestationSubject,
       attestationSaveDir,
+      checklistSaveDir,
+      checklistMinChecked,
     };
   }
 
@@ -480,14 +818,52 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
     baseDir: string,
     commit: string,
     quizId: string,
+    token: string,
+    suffix = ''
+  ): Promise<string> {
+    const workspaceRoot = this.getWorkspaceRoot();
+    const dir = path.join(workspaceRoot, baseDir, commit);
+    await fs.promises.mkdir(dir, { recursive: true });
+    const fileName = suffix ? `${quizId}-${suffix}.jwt` : `${quizId}.jwt`;
+    const filePath = path.join(dir, fileName);
+    await fs.promises.writeFile(filePath, token, 'utf8');
+    return path.relative(workspaceRoot, filePath);
+  }
+
+  private async writeChecklistAttestationFile(
+    baseDir: string,
+    commit: string,
+    quizId: string,
     token: string
   ): Promise<string> {
     const workspaceRoot = this.getWorkspaceRoot();
     const dir = path.join(workspaceRoot, baseDir, commit);
     await fs.promises.mkdir(dir, { recursive: true });
-    const filePath = path.join(dir, `${quizId}.jwt`);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filePath = path.join(dir, `${quizId}-checklist-${timestamp}.jwt`);
     await fs.promises.writeFile(filePath, token, 'utf8');
     return path.relative(workspaceRoot, filePath);
+  }
+
+  private async writeChecklistFile(
+    baseDir: string,
+    commit: string,
+    content: string
+  ): Promise<string> {
+    const workspaceRoot = this.getWorkspaceRoot();
+    const dir = path.join(workspaceRoot, baseDir, commit || 'workspace');
+    await fs.promises.mkdir(dir, { recursive: true });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filePath = path.join(dir, `checklist-${timestamp}.md`);
+    await fs.promises.writeFile(filePath, content, 'utf8');
+    return path.relative(workspaceRoot, filePath);
+  }
+
+  private async openChecklistFile(checklistPath: string): Promise<void> {
+    const workspaceRoot = this.getWorkspaceRoot();
+    const filePath = path.join(workspaceRoot, checklistPath);
+    const document = await vscode.workspace.openTextDocument(filePath);
+    await vscode.window.showTextDocument(document, { preview: false });
   }
 
   private getHtml(webview: vscode.Webview): string {

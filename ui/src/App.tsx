@@ -37,6 +37,20 @@ type ExtensionMessage =
     }
   | { type: 'quizSet'; quizSet: QuizSet }
   | {
+      type: 'checklistReady';
+      path: string;
+      checked: number;
+      total: number;
+      minChecked: number;
+    }
+  | {
+      type: 'checklistTokenIssued';
+      token: string;
+      attestationPath: string;
+      checked: number;
+      total: number;
+    }
+  | {
       type: 'gradeResult';
       score: number;
       passed: boolean;
@@ -72,6 +86,14 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [isChecklistGenerating, setIsChecklistGenerating] = useState(false);
+  const [checklistPath, setChecklistPath] = useState<string | null>(null);
+  const [checklistProgress, setChecklistProgress] = useState<{ checked: number; total: number } | null>(
+    null
+  );
+  const [checklistMinChecked, setChecklistMinChecked] = useState(0);
+  const [checklistToken, setChecklistToken] = useState<string | null>(null);
+  const [checklistAttestationPath, setChecklistAttestationPath] = useState<string | null>(null);
 
   useEffect(() => {
     const handler = (event: MessageEvent<ExtensionMessage>) => {
@@ -87,6 +109,12 @@ export default function App() {
           });
           setSelectedFiles(initialSelection);
           setStatusMessage(null);
+          setChecklistPath(null);
+          setChecklistProgress(null);
+          setChecklistMinChecked(0);
+          setChecklistToken(null);
+          setChecklistAttestationPath(null);
+          setIsChecklistGenerating(false);
           return;
         }
         case 'quizSet': {
@@ -97,6 +125,23 @@ export default function App() {
           setIsGenerating(false);
           setView('quiz');
           setStatusMessage(null);
+          return;
+        }
+        case 'checklistReady': {
+          setChecklistPath(message.path);
+          setChecklistProgress({ checked: message.checked, total: message.total });
+          setChecklistMinChecked(message.minChecked);
+          setChecklistToken(null);
+          setChecklistAttestationPath(null);
+          setIsChecklistGenerating(false);
+          setStatusMessage('チェックシートを作成しました。');
+          return;
+        }
+        case 'checklistTokenIssued': {
+          setChecklistToken(message.token);
+          setChecklistAttestationPath(message.attestationPath);
+          setChecklistProgress({ checked: message.checked, total: message.total });
+          setStatusMessage('チェックシートのトークンを発行しました。');
           return;
         }
         case 'gradeResult': {
@@ -132,6 +177,7 @@ export default function App() {
           setStatusMessage(message.message);
           setIsGenerating(false);
           setIsSummarizing(false);
+          setIsChecklistGenerating(false);
           return;
         }
         default:
@@ -261,6 +307,44 @@ export default function App() {
     setErrorQuizResult(results.join(' / '));
   };
 
+  const handleGenerateChecklist = () => {
+    if (!selectedList.length) {
+      setStatusMessage('チェックシートの対象ファイルを選択してください。');
+      return;
+    }
+    setIsChecklistGenerating(true);
+    setStatusMessage('チェックシートを作成しています...');
+    vscode.postMessage({ type: 'generateChecklist', files: selectedList });
+  };
+
+  const handleOpenChecklist = () => {
+    if (!checklistPath) {
+      setStatusMessage('チェックシートがありません。');
+      return;
+    }
+    vscode.postMessage({ type: 'openChecklist', path: checklistPath });
+  };
+
+  const handleIssueChecklistToken = () => {
+    if (!checklistPath) {
+      setStatusMessage('チェックシートがありません。');
+      return;
+    }
+    vscode.postMessage({ type: 'issueChecklistToken', path: checklistPath });
+  };
+
+  const handleCopyChecklistToken = async () => {
+    if (!checklistToken) return;
+    await navigator.clipboard.writeText(checklistToken);
+    setStatusMessage('チェックシートのトークンをコピーしました。');
+  };
+
+  const handleCopyChecklistAttestation = async () => {
+    if (!checklistAttestationPath) return;
+    await navigator.clipboard.writeText(checklistAttestationPath);
+    setStatusMessage('チェックシートのattestationパスをコピーしました。');
+  };
+
   return (
     <div className="app">
       <header className="hero">
@@ -305,7 +389,56 @@ export default function App() {
         </section>
       )}
 
-      {view === 'list' && null}
+      {view === 'list' && (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>理解チェックシート</h2>
+            <span>Markdown</span>
+          </div>
+          <p className="muted">
+            差分からチェック項目を作成し、埋めたらトークンを発行できます。
+          </p>
+          <div className="nav">
+            <button className="primary" onClick={handleGenerateChecklist} disabled={isChecklistGenerating}>
+              {isChecklistGenerating ? '作成中...' : 'チェックシート作成'}
+            </button>
+            <button className="secondary" onClick={handleOpenChecklist} disabled={!checklistPath}>
+              開く
+            </button>
+            <button className="ghost" onClick={handleIssueChecklistToken} disabled={!checklistPath}>
+              トークン発行
+            </button>
+          </div>
+          {checklistPath && (
+            <div className="token">
+              <p className="meta">チェックシート: {checklistPath}</p>
+              {checklistProgress && (
+                <p className="meta">
+                  進捗: {checklistProgress.checked}/{checklistProgress.total} （最低 {checklistMinChecked}）
+                </p>
+              )}
+            </div>
+          )}
+          {checklistToken && (
+            <div className="token">
+              <p className="meta">チェックシートの理解トークン (JWT)</p>
+              <textarea readOnly value={checklistToken} />
+              <button className="secondary" onClick={handleCopyChecklistToken}>
+                トークンをコピー
+              </button>
+              {checklistAttestationPath && (
+                <>
+                  <p className="meta">attestation file</p>
+                  <textarea readOnly value={checklistAttestationPath} />
+                  <button className="ghost" onClick={handleCopyChecklistAttestation}>
+                    パスをコピー
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       {quizSet && view === 'quiz' && (
         <section className="panel">

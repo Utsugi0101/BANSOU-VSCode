@@ -163,16 +163,19 @@ export function buildRecommendations(
     });
   }
 
-  const languageTemplate =
-    config.languageSearchUrls[languageId] ?? config.fallbackSearchUrl;
-  if (languageTemplate) {
+  const languageResolution = resolveLanguageTemplate(languageId, config);
+  if (languageResolution) {
     addItem('language', {
       id: `language:${languageId}`,
       label: `言語: ${languageId}`,
       description: '公式ドキュメントを開く',
       group: 'language',
       iconId: 'book',
-      action: { query: languageId, languageId, kind: 'language' },
+      action: {
+        query: languageResolution.lookupId,
+        languageId: languageResolution.lookupId,
+        kind: 'language',
+      },
     });
   }
 
@@ -181,6 +184,37 @@ export function buildRecommendations(
 
 export function normalizePattern(pattern: string): string {
   return pattern.replace(/\\\\/g, '\\');
+}
+
+function resolveLanguageTemplate(
+  languageId: string,
+  config: DocsConfig
+): { lookupId: string; template: string } | null {
+  const direct = config.languageSearchUrls[languageId];
+  if (direct) {
+    return { lookupId: languageId, template: direct };
+  }
+  const alias = resolveLanguageAlias(languageId, config.languageSearchUrls);
+  if (alias) {
+    return { lookupId: alias, template: config.languageSearchUrls[alias] };
+  }
+  if (config.fallbackSearchUrl) {
+    return { lookupId: languageId, template: config.fallbackSearchUrl };
+  }
+  return null;
+}
+
+function resolveLanguageAlias(
+  languageId: string,
+  languageSearchUrls: Record<string, string>
+): string | null {
+  if (languageId.endsWith('react')) {
+    const base = languageId.replace(/react$/, '');
+    if (languageSearchUrls[base]) {
+      return base;
+    }
+  }
+  return null;
 }
 
 export function extractPatternHits(
@@ -239,13 +273,18 @@ export function extractPackageNames(text: string): string[] {
     /\bfrom\s+['"]([^'"]+)['"]/g,
     /\brequire\(\s*['"]([^'"]+)['"]\s*\)/g,
     /\bimport\(\s*['"]([^'"]+)['"]\s*\)/g,
+    /\bimport\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+as\s+[A-Za-z_][A-Za-z0-9_]*)?/g,
+    /\bfrom\s+([A-Za-z_][A-Za-z0-9_\.]*)\s+import\s+/g,
   ];
   for (const pattern of patterns) {
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(text)) !== null) {
-      const value = match[1]?.trim();
+      let value = match[1]?.trim();
       if (!value || value.startsWith('.') || value.startsWith('/')) {
         continue;
+      }
+      if (value.includes('.')) {
+        value = value.split('.')[0] ?? value;
       }
       results.add(value);
     }
