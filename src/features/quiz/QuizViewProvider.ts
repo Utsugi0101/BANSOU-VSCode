@@ -759,17 +759,20 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
       if (passed) {
         for (const attestation of response.attestations) {
           const artifactPath = attestation.artifact.path;
-          const issuedPath = await this.writeAttestationFile(
-            config.attestationSaveDir,
-            this.lastCommit,
-            config.attestationQuizId,
-            attestation.attestation_jwt,
-            buildAttestationSuffix(
-              artifactPath,
-              attestation.artifact.rangeStart,
-              attestation.artifact.rangeEnd
-            )
-          );
+          let issuedPath = 'server-ledger';
+          if (config.proofStorageMode === 'repository') {
+            issuedPath = await this.writeAttestationFile(
+              config.attestationSaveDir,
+              this.lastCommit,
+              config.attestationQuizId,
+              attestation.attestation_jwt,
+              buildAttestationSuffix(
+                artifactPath,
+                attestation.artifact.rangeStart,
+                attestation.artifact.rangeEnd
+              )
+            );
+          }
           issuedAttestations.push({
             token: attestation.attestation_jwt,
             attestationPath: issuedPath,
@@ -926,6 +929,7 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
     attestationSaveDir: string;
     checklistSaveDir: string;
     checklistMinChecked: number;
+    proofStorageMode: 'serverOnly' | 'repository';
   } {
     const config = vscode.workspace.getConfiguration('understandingQuiz');
     const model = config.get<string>('model', 'gpt-5-mini');
@@ -974,6 +978,10 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
       config.get<string>('checklistSaveDir', '.bansou/checklists') ||
       '.bansou/checklists';
     const checklistMinChecked = config.get<number>('checklistMinChecked', 0);
+    const proofStorageMode = config.get<'serverOnly' | 'repository'>(
+      'proofStorageMode',
+      'serverOnly'
+    );
     return {
       model,
       passScore,
@@ -988,6 +996,7 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
       attestationSaveDir,
       checklistSaveDir,
       checklistMinChecked,
+      proofStorageMode,
     };
   }
 

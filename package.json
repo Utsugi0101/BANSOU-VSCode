@@ -512,6 +512,12 @@
           "default": ".bansou/attestations",
           "description": "Directory to save attestation JWT files under the workspace."
         },
+        "understandingQuiz.proofStorageMode": {
+          "type": "string",
+          "enum": ["serverOnly", "repository"],
+          "default": "serverOnly",
+          "description": "Where to store proof tokens: server ledger only or repository files."
+        },
         "understandingQuiz.checklistSaveDir": {
           "type": "string",
           "default": ".bansou/checklists",
