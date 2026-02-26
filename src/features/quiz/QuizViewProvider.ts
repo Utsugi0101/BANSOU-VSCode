@@ -36,6 +36,9 @@ const DEFAULT_EXCLUDED_GLOBS = [
   '**/*.toml',
   '**/*.ini',
   '**/*.cfg',
+  '**/*.sh',
+  '**/*.bash',
+  '**/*.zsh',
   'package-lock.json',
   'package.json',
   'pnpm-lock.yaml',
@@ -54,6 +57,7 @@ const DEFAULT_EXCLUDED_GLOBS = [
 const HARD_EXCLUDED_GLOBS = [
   '.bansou/**',
   '**/*.jwt',
+  'scripts/**',
   '**/*.md',
   '**/*.markdown',
   '**/*.json',
@@ -62,6 +66,9 @@ const HARD_EXCLUDED_GLOBS = [
   '**/*.toml',
   '**/*.ini',
   '**/*.cfg',
+  '**/*.sh',
+  '**/*.bash',
+  '**/*.zsh',
 ];
 
 function desiredQuestionCount(totalChangedLines: number): number {
@@ -432,7 +439,8 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
     this.lastServerDiffHash = '';
 
     const config = this.getConfig();
-    if (config.attestationServerUrl && config.attestationSubject) {
+    const attestationSubject = this.resolveAttestationSubject(config.attestationSubject);
+    if (config.attestationServerUrl && attestationSubject) {
       try {
         const desiredCount =
           config.questionCount === 'auto'
@@ -440,7 +448,7 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
             : config.questionCount;
         const artifacts = buildArtifactsForFiles(files, diffsByFile);
         const response = await generateServerQuiz(config.attestationServerUrl, {
-          sub: config.attestationSubject,
+          sub: attestationSubject,
           repo: this.lastRepo,
           commit: this.lastCommit,
           quiz_id: config.attestationQuizId,
@@ -460,11 +468,11 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
         this.lastQuizSessionToken = response.quiz_session_token;
         this.lastServerQuestionsHash = response.questions_hash;
         this.lastServerDiffHash = response.diff_hash;
-        const shuffledQuiz = shuffleQuizOptions(quizSet);
-        this.lastQuiz = shuffledQuiz;
+        // Keep server quiz option order as-is so submitted answers align with server grading.
+        this.lastQuiz = quizSet;
         this.lastFiles = files;
         this.quizStartedAt = Date.now();
-        this.postMessage({ type: 'quizSet', quizSet: shuffledQuiz });
+        this.postMessage({ type: 'quizSet', quizSet });
         return;
       } catch (error) {
         const messageText =
@@ -798,7 +806,8 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
         if (!config.attestationServerUrl) {
           throw new Error('attestationServerUrl is not set in settings or environment.');
         }
-        if (!config.attestationSubject) {
+        const attestationSubject = this.resolveAttestationSubject(config.attestationSubject);
+        if (!attestationSubject) {
           throw new Error('attestationSubject is not set in settings or environment.');
         }
         const durationMs = this.quizStartedAt ? Date.now() - this.quizStartedAt : undefined;
@@ -806,7 +815,7 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
           const ranges = extractChangedRanges(this.lastDiffsByFile[filePath] ?? '');
           if (ranges.length === 0) {
             const response = await issueAttestation(config.attestationServerUrl, {
-              sub: config.attestationSubject,
+              sub: attestationSubject,
               repo: this.lastRepo,
               commit: this.lastCommit,
               artifact: { path: filePath },
@@ -835,7 +844,7 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
 
           for (const range of ranges) {
             const response = await issueAttestation(config.attestationServerUrl, {
-              sub: config.attestationSubject,
+              sub: attestationSubject,
               repo: this.lastRepo,
               commit: this.lastCommit,
               artifact: {
@@ -998,6 +1007,20 @@ export class QuizViewProvider implements vscode.WebviewViewProvider {
       checklistMinChecked,
       proofStorageMode,
     };
+  }
+
+  private resolveAttestationSubject(configSubject: string): string {
+    if (configSubject && configSubject.trim().length > 0) {
+      return configSubject.trim();
+    }
+    const [owner] = this.lastRepo.split('/');
+    if (owner && owner.trim().length > 0) {
+      return owner.trim();
+    }
+    if (this.lastUserName && this.lastUserName.trim().length > 0) {
+      return this.lastUserName.trim();
+    }
+    return '';
   }
 
   private getIssuer(): string {
