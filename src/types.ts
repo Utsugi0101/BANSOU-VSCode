@@ -2,7 +2,7 @@ export type QuizQuestion = {
   filePath: string;
   question: string;
   options: [string, string, string, string];
-  answerIndex: number;
+  answerIndex?: number;
   rationale?: string;
   hunkSummary?: string;
 };

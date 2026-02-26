@@ -377,13 +377,18 @@ function extractPackageNames(text: string): string[] {
     /\bfrom\s+['"]([^'"]+)['"]/g,
     /\brequire\(\s*['"]([^'"]+)['"]\s*\)/g,
     /\bimport\(\s*['"]([^'"]+)['"]\s*\)/g,
+    /\bimport\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+as\s+[A-Za-z_][A-Za-z0-9_]*)?/g,
+    /\bfrom\s+([A-Za-z_][A-Za-z0-9_\.]*)\s+import\s+/g,
   ];
   for (const pattern of patterns) {
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(text)) !== null) {
-      const value = match[1]?.trim();
+      let value = match[1]?.trim();
       if (!value || value.startsWith('.') || value.startsWith('/')) {
         continue;
+      }
+      if (value.includes('.')) {
+        value = value.split('.')[0] ?? value;
       }
       results.add(value);
     }
