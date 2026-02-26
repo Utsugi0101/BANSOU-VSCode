@@ -2,6 +2,10 @@
 
 Git diff から理解確認クイズを生成し、解説と理解トークンを発行する VS Code 拡張です。
 
+## 公開先
+
+- Marketplace: https://marketplace.visualstudio.com/items?itemName=utsugi0101.bansou
+
 ## Features
 
 - git diff からクイズ生成（選択式）
@@ -44,10 +48,10 @@ BANSOU_ATTEST_SUB=your-github-login
 - `F5` で Extension Development Host を起動
 - コマンドパレットで `BANSOU: Open Sidebar`
 
-## Terminal Error Quiz (Dev Mode)
+## Terminal Error Quiz
 
-ターミナルのエラー検知は提案API `terminalDataWriteEvent` を使います。  
-Extension Development Host の起動引数で `--enable-proposed-api undefined_publisher.bansou` を指定してください。
+ターミナルエラー理解クイズは手動トリガー前提です。  
+公開版では proposed API を使わないため、通常の拡張機能としてそのまま起動できます。
 
 ## Settings
 
@@ -88,9 +92,9 @@ Repository Variables に `BANSOU_MIN_SCORE` を設定（サーバ側の設定に
 
 ## 手動テスト手順（Phase 2）
 
-- `.bansou/attestations/<commit>/<quiz_id>.jwt` が作成されていることを確認
-- その JWT ファイルをコミットしてPRに含める
-- Workflow が成功することを確認
+- `proofStorageMode: serverOnly` でクイズに合格する
+- `BANSOU-test` で `npm run e2e:check` が `ok:true` になることを確認
+- PR の `Verify BANSOU Token` ワークフローが成功することを確認
 
 ## ターミナルエラー理解クイズ（MVP）
 
